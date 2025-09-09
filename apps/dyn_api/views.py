@@ -25,6 +25,7 @@ except:
 
 from .helpers import Utils 
 
+@login_required
 def index(request):
     
     context = {
