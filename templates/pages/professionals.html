@@ -1,10 +1,158 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>$Title$</title>
-</head>
-<body>
-$END$
-</body>
-</html>
+{% extends "layouts/base.html" %}
+
+{% block title %} Profesionales {% endblock %}
+
+{% block content %}
+
+<div class="container-fluid py-4">
+  <!-- Add Professional Card -->
+  <div class="row">
+    <div class="col-12">
+      <div class="card my-4">
+        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
+          <div class="bg-gradient-success shadow-primary border-radius-lg pt-4 pb-3">
+            <h6 class="text-white text-capitalize ps-3">Añadir Profesional</h6>
+          </div>
+        </div>
+        <div class="card-body px-4 pb-2">
+          <!-- Display messages if any -->
+          {% if messages %}
+            {% for message in messages %}
+              <div class="alert alert-success text-white" role="alert">
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+
+          <!-- Professional Form -->
+          <form method="post">
+            {% csrf_token %}
+            <div class="row">
+              <div class="col-md-6">
+                <div class="input-group input-group-outline my-3">
+                  <label class="form-label">Nombre</label>
+                  <input type="text" name="first_name" class="form-control" required>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="input-group input-group-outline my-3">
+                  <label class="form-label">Apellido</label>
+                  <input type="text" name="last_name" class="form-control" required>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6">
+                <div class="input-group input-group-static mb-4">
+                  <label for="role">Tipo</label>
+                  <select name="role" class="form-control" required>
+                    <option value="">Seleccione tipo</option>
+                    <option value="psychologist">Psicólogo</option>
+                    <option value="psychiatrist">Psiquiatra</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="input-group input-group-outline my-3">
+                  <label class="form-label">Especialidad</label>
+                  <input type="text" name="specialty" class="form-control">
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6">
+                <div class="input-group input-group-outline my-3">
+                  <label class="form-label">Email</label>
+                  <input type="email" name="email" class="form-control">
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="input-group input-group-outline my-3">
+                  <label class="form-label">Teléfono</label>
+                  <input type="tel" name="phone" class="form-control">
+                </div>
+              </div>
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="input-group input-group-outline my-3">
+                      <label class="form-label">Username</label>
+                      <input type="text" name="username" class="form-control" required>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="input-group input-group-outline my-3">
+                      <label class="form-label">Password</label>
+                      <input type="password" name="password" class="form-control" required>
+                    </div>
+                  </div>
+                </div>
+            </div>
+            <div class="text-center">
+              <button type="submit" class="btn btn-outline-success w-100 my-4 mb-2">Añadir Profesional</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Professionals List Card -->
+  <div class="row">
+    <div class="col-12">
+      <div class="card my-4">
+        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
+          <div class="bg-gradient-success shadow-primary border-radius-lg pt-4 pb-3">
+            <h6 class="text-white text-capitalize ps-3">Profesionales</h6>
+          </div>
+        </div>
+        <div class="card-body px-0 pb-2">
+          <div class="table-responsive p-0">
+            <table class="table align-items-center mb-0">
+              <thead>
+                <tr>
+                  <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Profesional</th>
+                  <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Tipo</th>
+                  <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Especialidad</th>
+                  <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Contacto</th>
+                  <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Pacientes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for professional in professionals %}
+                <tr>
+                  <td>
+                    <div class="d-flex px-2 py-1">
+                      <div class="d-flex flex-column justify-content-center">
+                        <h6 class="mb-0 text-sm">{{ professional.first_name }} {{ professional.last_name }}</h6>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <p class="text-xs font-weight-bold mb-0">{{ professional.get_role_display }}</p>
+                  </td>
+                  <td>
+                    <p class="text-xs font-weight-bold mb-0">{{ professional.specialty }}</p>
+                  </td>
+                  <td>
+                    <p class="text-xs font-weight-bold mb-0">{{ professional.email }}</p>
+                    <p class="text-xs text-secondary mb-0">{{ professional.phone }}</p>
+                  </td>
+                  <td class="align-middle text-center">
+                    <span class="text-secondary text-xs font-weight-bold">{{ professional.patients.count }}</span>
+                  </td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="5" class="text-center py-4">No hay profesionales registrados</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock content %}

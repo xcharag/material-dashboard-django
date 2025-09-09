@@ -1,10 +1,192 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>$Title$</title>
-</head>
-<body>
-$END$
-</body>
-</html>
+{% extends "layouts/base.html" %}
+
+{% block title %} Pacientes {% endblock %}
+
+{% block content %}
+
+<div class="container-fluid py-4">
+  <!-- Add Patient Card -->
+  <div class="row">
+    <div class="col-12">
+      <div class="card my-4">
+        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
+          <div class="bg-gradient-success shadow-primary border-radius-lg pt-4 pb-3">
+            <h6 class="text-white text-capitalize ps-3">Añadir Paciente</h6>
+          </div>
+        </div>
+        <div class="card-body px-4 pb-2">
+          <!-- Display messages if any -->
+          {% if messages %}
+            {% for message in messages %}
+              <div class="alert alert-success text-white" role="alert">
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+
+          <!-- Patient Form -->
+          <form method="post">
+            {% csrf_token %}
+            <div class="row">
+              <div class="col-md-6">
+                <div class="input-group input-group-outline my-3">
+                  <label class="form-label">Nombre</label>
+                  <input type="text" name="first_name" class="form-control" required>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="input-group input-group-outline my-3">
+                  <label class="form-label">Apellido</label>
+                  <input type="text" name="last_name" class="form-control" required>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6">
+                <div class="input-group input-group-outline my-3">
+                  <label class="form-label">Email</label>
+                  <input type="email" name="email" class="form-control">
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="input-group input-group-outline my-3">
+                  <label class="form-label">Teléfono</label>
+                  <input type="tel" name="phone" class="form-control">
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6">
+                <div class="input-group input-group-static mb-4">
+                  <label>Fecha de nacimiento</label>
+                  <input type="date" name="date_of_birth" class="form-control">
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-12">
+                <div class="input-group input-group-static mb-4">
+                  <label>Dirección</label>
+                  <textarea name="address" class="form-control" rows="4"></textarea>
+                </div>
+              </div>
+            </div>
+            <!-- Only show for admins -->
+            {% if is_admin %}
+            <div class="row">
+              <div class="col-md-6">
+                <div class="input-group input-group-static mb-4">
+                  <label for="professional">Profesional asignado</label>
+                  <select name="professional" class="form-control" required>
+                    <option value="">Seleccionar profesional</option>
+                    {% for prof in all_professionals %}
+                      <option value="{{ prof.id }}">{{ prof.first_name }} {{ prof.last_name }} ({{ prof.get_role_display }})</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+            <div class="text-center">
+                <button type="submit" class="btn btn-outline-success w-100 my-4 mb-2">Añadir Paciente</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Patients List Card -->
+  <div class="row">
+    <div class="col-12">
+      <div class="card my-4">
+        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
+          <div class="bg-gradient-success shadow-primary border-radius-lg pt-4 pb-3">
+            <h6 class="text-white text-capitalize ps-3">Pacientes</h6>
+          </div>
+        </div>
+        <div class="card-body px-0 pb-2">
+          <div class="table-responsive p-0">
+            <table class="table align-items-center mb-0">
+              <thead>
+                <tr>
+                  <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Paciente</th>
+                  <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Contacto</th>
+                  <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Fecha de nacimiento</th>
+                  <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Profesional</th>
+                  <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Creado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for patient in patients %}
+                <tr>
+                  <td>
+                    <div class="d-flex px-2 py-1">
+                      <div class="d-flex flex-column justify-content-center">
+                        <h6 class="mb-0 text-sm">{{ patient.first_name }} {{ patient.last_name }}</h6>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <p class="text-xs font-weight-bold mb-0">{{ patient.email }}</p>
+                    <p class="text-xs text-secondary mb-0">{{ patient.phone }}</p>
+                  </td>
+                  <td class="align-middle text-center text-sm">
+                    <p class="text-xs font-weight-bold mb-0">{{ patient.date_of_birth|date:"d/m/Y" }}</p>
+                  </td>
+                    <td class="align-middle text-center">
+                    {% if patient.professional %}
+                      <span class="text-secondary text-xs font-weight-bold">{{ patient.professional.first_name }} {{ patient.professional.last_name }}</span>
+                    {% else %}
+                      <span class="text-secondary text-xs font-weight-bold">No asignado</span>
+                    {% endif %}
+                    </td>
+                  <td class="align-middle text-center">
+                    <span class="text-secondary text-xs font-weight-bold">{{ patient.created_at|date:"d/m/Y" }}</span>
+                  </td>
+                    <td class="align-middle text-center">
+                      <a href="{% url 'edit_patient' patient.id %}" class="btn btn-sm bg-gradient-info me-1">
+                        <i class="material-symbols-rounded opacity-10">edit</i>
+                      </a>
+                      <a href="#" data-bs-toggle="modal" data-bs-target="#deleteModal{{ patient.id }}" class="btn btn-sm bg-gradient-danger">
+                        <i class="material-symbols-rounded opacity-10">delete</i>
+                      </a>
+
+                      <!-- Delete Confirmation Modal -->
+                      <div class="modal fade" id="deleteModal{{ patient.id }}" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+                        <div class="modal-dialog">
+                          <div class="modal-content">
+                            <div class="modal-header">
+                              <h5 class="modal-title" id="deleteModalLabel">Confirmar eliminación</h5>
+                              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                              ¿Estás seguro que deseas eliminar al paciente {{ patient.first_name }} {{ patient.last_name }}?
+                            </div>
+                            <div class="modal-footer">
+                              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                              <form action="{% url 'delete_patient' patient.id %}" method="post" style="display: inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger">Eliminar</button>
+                              </form>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="4" class="text-center py-4">No hay pacientes registrados</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock content %}

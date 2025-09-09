@@ -1,10 +1,100 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>$Title$</title>
-</head>
-<body>
-$END$
-</body>
-</html>
+{% extends "layouts/base.html" %}
+
+{% block title %} Editar Paciente {% endblock %}
+
+{% block content %}
+
+<div class="container-fluid py-4">
+  <div class="row">
+    <div class="col-12">
+      <div class="card my-4">
+        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
+          <div class="bg-gradient-info shadow-info border-radius-lg pt-4 pb-3">
+            <h6 class="text-white text-capitalize ps-3">Editar Paciente</h6>
+          </div>
+        </div>
+        <div class="card-body px-4 pb-2">
+          <!-- Display messages if any -->
+          {% if messages %}
+            {% for message in messages %}
+              <div class="alert alert-{{ message.tags }} text-white" role="alert">
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+
+          <!-- Patient Form -->
+          <form method="post">
+            {% csrf_token %}
+            <div class="row">
+              <div class="col-md-6">
+                <div class="input-group input-group-static mb-4">
+                  <label>Nombre</label>
+                  <input type="text" name="first_name" class="form-control" value="{{ patient.first_name }}" required>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="input-group input-group-static mb-4">
+                  <label>Apellido</label>
+                  <input type="text" name="last_name" class="form-control" value="{{ patient.last_name }}" required>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6">
+                <div class="input-group input-group-static mb-4">
+                  <label>Email</label>
+                  <input type="email" name="email" class="form-control" value="{{ patient.email|default:'' }}">
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="input-group input-group-static mb-4">
+                  <label>Teléfono</label>
+                  <input type="tel" name="phone" class="form-control" value="{{ patient.phone|default:'' }}">
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6">
+                <div class="input-group input-group-static mb-4">
+                  <label>Fecha de nacimiento</label>
+                  <input type="date" name="date_of_birth" class="form-control" value="{% if patient.date_of_birth %}{{ patient.date_of_birth|date:'Y-m-d' }}{% endif %}">
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-12">
+                <div class="input-group input-group-static mb-4">
+                  <label>Dirección</label>
+                  <textarea name="address" class="form-control" rows="4">{{ patient.address|default:'' }}</textarea>
+                </div>
+              </div>
+            </div>
+            <!-- Only show for admins -->
+            {% if is_admin %}
+            <div class="row">
+              <div class="col-md-6">
+                <div class="input-group input-group-static mb-4">
+                  <label for="professional">Profesional asignado</label>
+                  <select name="professional" class="form-control">
+                    <option value="">Seleccionar profesional</option>
+                    {% for prof in all_professionals %}
+                      <option value="{{ prof.id }}" {% if patient.professional_id == prof.id %}selected{% endif %}>{{ prof.first_name }} {{ prof.last_name }} ({{ prof.get_role_display }})</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+            <div class="text-center">
+              <a href="{% url 'patients' %}" class="btn btn-outline-secondary my-4 mb-2 me-2">Cancelar</a>
+              <button type="submit" class="btn bg-gradient-info my-4 mb-2">Guardar Cambios</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock content %}

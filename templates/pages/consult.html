@@ -1,10 +1,176 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>$Title$</title>
-</head>
-<body>
-$END$
-</body>
-</html>
+{% extends "layouts/base.html" %}
+
+{% block title %} Consultas {% endblock %}
+
+{% block content %}
+
+<div class="container-fluid py-4">
+  <!-- Create Consultation Card -->
+  <div class="row">
+    <div class="col-12">
+      <div class="card my-4">
+        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
+          <div class="bg-gradient-success shadow-success border-radius-lg pt-4 pb-3">
+            <h6 class="text-white text-capitalize ps-3">Programar Consulta</h6>
+          </div>
+        </div>
+        <div class="card-body px-4 pb-2">
+          <!-- Display messages if any -->
+            {% if messages %}
+              {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} text-white" role="alert">
+                  {{ message }}
+                </div>
+              {% endfor %}
+            {% endif %}
+
+          <!-- Consultation Form -->
+          <form method="post">
+            {% csrf_token %}
+            <div class="row">
+              <div class="col-md-6">
+                <div class="input-group input-group-static mb-4">
+                  <label for="patient">Paciente</label>
+                  <select name="patient" id="patient" class="form-control" required>
+                    <option value="">Seleccionar paciente</option>
+                    {% for patient in patients %}
+                      <option value="{{ patient.id }}">{{ patient.first_name }} {{ patient.last_name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="input-group input-group-static mb-4">
+                  <label for="consultory">Consultorio</label>
+                  <select name="consultory" id="consultory" class="form-control" required>
+                    <option value="">Seleccionar consultorio</option>
+                    <option value="A1">Consultorio A1</option>
+                    <option value="A2">Consultorio A2</option>
+                    <option value="B1">Consultorio B1</option>
+                    <option value="B2">Consultorio B2</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6">
+                <div class="input-group input-group-static mb-4">
+                  <label>Fecha</label>
+                  <input type="date" name="date" class="form-control" required>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="input-group input-group-static mb-4">
+                  <label>Hora</label>
+                  <input type="time" name="time" class="form-control" required>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6">
+                <div class="input-group input-group-static mb-4">
+                  <label>Costo de Consulta</label>
+                  <input type="number" name="charge" step="0.01" class="form-control" required>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="input-group input-group-static mb-4">
+                  <label>Duración (minutos)</label>
+                  <input type="number" name="duration" value="60" class="form-control">
+                </div>
+              </div>
+            </div>
+          <!-- Add this after the duration field in the consultation form if the user is admin -->
+            {% if is_admin %}
+            <div class="row">
+              <div class="col-md-6">
+                <div class="input-group input-group-static mb-4">
+                  <label for="professional">Profesional</label>
+                  <select name="professional" id="professional" class="form-control" required>
+                    <option value="">Seleccionar profesional</option>
+                    {% for prof in all_professionals %}
+                      <option value="{{ prof.id }}">{{ prof.first_name }} {{ prof.last_name }} ({{ prof.get_role_display }})</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+            <div class="row">
+              <div class="col-12">
+                <div class="input-group input-group-static mb-4">
+                  <label>Notas</label>
+                  <textarea name="notes" class="form-control" rows="3"></textarea>
+                </div>
+              </div>
+            </div>
+            <div class="text-center">
+              <button type="submit" class="btn btn-outline-success w-100 my-4 mb-2">Programar Consulta</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upcoming Consultations List Card -->
+  <div class="row">
+    <div class="col-12">
+      <div class="card my-4">
+        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
+          <div class="bg-gradient-success shadow-success border-radius-lg pt-4 pb-3">
+            <h6 class="text-white text-capitalize ps-3">Consultas Programadas</h6>
+          </div>
+        </div>
+        <div class="card-body px-0 pb-2">
+          <div class="table-responsive p-0">
+            <table class="table align-items-center mb-0">
+              <thead>
+                <tr>
+                  <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Paciente</th>
+                  <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Consultorio</th>
+                  <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Fecha y Hora</th>
+                  <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Costo</th>
+                  <th class="text-secondary opacity-7"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for consult in consultations %}
+                <tr>
+                  <td>
+                    <div class="d-flex px-2 py-1">
+                      <div class="d-flex flex-column justify-content-center">
+                        <h6 class="mb-0 text-sm">{{ consult.patient.first_name }} {{ consult.patient.last_name }}</h6>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <p class="text-xs font-weight-bold mb-0">{{ consult.consultory }}</p>
+                  </td>
+                  <td class="align-middle text-center text-sm">
+                    <p class="text-xs font-weight-bold mb-0">{{ consult.date|date:"d/m/Y" }} {{ consult.time }}</p>
+                  </td>
+                  <td class="align-middle text-center">
+                    <span class="text-secondary text-xs font-weight-bold">${{ consult.charge }}</span>
+                  </td>
+                  <td class="align-middle">
+                    <a href="{% url 'start_session' consult.id %}" class="btn btn-sm bg-gradient-success">
+                      Iniciar Sesión
+                    </a>
+                  </td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="5" class="text-center py-4">No hay consultas programadas</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock content %}
