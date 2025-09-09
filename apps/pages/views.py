@@ -3,9 +3,10 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import views as auth_views
+from django.db import IntegrityError
 from .models import Patient, Professional, Consultation
 from django.contrib import messages
-from .forms import CustomLoginForm
+from .forms import CustomLoginForm, UsernameRecoveryForm
 
 # Create your views here.
 
@@ -17,6 +18,32 @@ class CustomLoginView(auth_views.LoginView):
     template_name = 'pages/sign-in.html'
     form_class = CustomLoginForm
     success_url = '/'
+
+def username_recovery(request):
+    if request.method == 'POST':
+        form = UsernameRecoveryForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data['email']
+            users = User.objects.filter(email=email)
+            usernames = [user.username for user in users]
+            
+            # For now, we'll display the usernames directly
+            # In a production environment, you'd send this via email
+            context = {
+                'form': form,
+                'usernames': usernames,
+                'email': email,
+                'success': True
+            }
+            return render(request, 'pages/username_recovery.html', context)
+    else:
+        form = UsernameRecoveryForm()
+    
+    context = {
+        'form': form,
+        'success': False
+    }
+    return render(request, 'pages/username_recovery.html', context)
 
 @login_required
 def patients(request):
@@ -172,7 +199,6 @@ def is_admin(user):
 
 @login_required
 @user_passes_test(is_admin)
-@login_required
 def professionals(request):
     if request.method == 'POST':
         # Process form data
@@ -187,27 +213,59 @@ def professionals(request):
         username = request.POST.get('username')
         password = request.POST.get('password')
 
-        # Create user account
-        user = User.objects.create_user(
-            username=username,
-            email=email,
-            password=password,
-            first_name=first_name,
-            last_name=last_name
-        )
+        # Validate that username is not already taken
+        if User.objects.filter(username=username).exists():
+            messages.error(request, f'El nombre de usuario "{username}" ya está en uso. Por favor, elige un nombre de usuario diferente.')
+            return redirect('professionals')
 
-        # Create professional linked to user
-        Professional.objects.create(
-            user=user,
-            first_name=first_name,
-            last_name=last_name,
-            role=role,
-            email=email,
-            phone=phone,
-            specialty=specialty
-        )
-        messages.success(request, 'Profesional agregado con exito!')
-        return redirect('professionals')
+        # Validate that email is not already taken (optional, but good practice)
+        if email and User.objects.filter(email=email).exclude(email='').exists():
+            messages.error(request, f'El correo electrónico "{email}" ya está registrado. Por favor, usa un correo diferente.')
+            return redirect('professionals')
+
+        try:
+            # Create user account
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name
+            )
+
+            # Create professional linked to user
+            Professional.objects.create(
+                user=user,
+                first_name=first_name,
+                last_name=last_name,
+                role=role,
+                email=email,
+                phone=phone,
+                specialty=specialty
+            )
+            messages.success(request, 'Profesional agregado con exito!')
+            return redirect('professionals')
+        
+        except IntegrityError as e:
+            # Handle database integrity errors (duplicate username/email)
+            if 'username' in str(e).lower():
+                messages.error(request, f'El nombre de usuario "{username}" ya está en uso. Por favor, elige un nombre de usuario diferente.')
+            elif 'email' in str(e).lower():
+                messages.error(request, f'El correo electrónico "{email}" ya está registrado. Por favor, usa un correo diferente.')
+            else:
+                messages.error(request, 'Error de integridad de datos. Por favor, verifica la información e inténtalo de nuevo.')
+            return redirect('professionals')
+        
+        except Exception as e:
+            # If something goes wrong, delete the user if it was created
+            print(f"Error creating professional: {e}")
+            if 'user' in locals():
+                try:
+                    user.delete()
+                except:
+                    pass
+            messages.error(request, 'Error al crear el profesional. Por favor, inténtalo de nuevo.')
+            return redirect('professionals')
 
     # Get all professionals
     professionals_list = Professional.objects.all().order_by('-created_at')

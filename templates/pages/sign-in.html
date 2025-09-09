@@ -45,6 +45,12 @@
                   <div class="text-center">
                     <button type="submit" class="btn bg-gradient-dark w-100 my-4 mb-2">Iniciar Sesión</button>
                   </div>
+                  <div class="text-center">
+                    <a href="{% url 'password_reset' %}" class="text-primary text-gradient font-weight-bold">¿Olvidaste tu contraseña?</a>
+                  </div>
+                  <div class="text-center mt-2">
+                    <a href="{% url 'username_recovery' %}" class="text-primary text-gradient font-weight-bold">¿Olvidaste tu usuario?</a>
+                  </div>
                 </form>
               </div>
             </div>
