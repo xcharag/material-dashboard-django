@@ -186,13 +186,13 @@ LOGIN_URL = '/accounts/login/'
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # Email configuration for password reset
-DEFAULT_FROM_EMAIL = 'odaguilarsoliz@gmail.com'
-SERVER_EMAIL = 'odaguilarsoliz@gmail.com'
-EMAIL_HOST = 'smtp.gmail.com'  # For production, replace with your SMTP server
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'odaguilarsoliz@gmail.com'  # Add your email for production
-EMAIL_HOST_PASSWORD = 'minionswar2'  # Add your email password for production
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@example.com')
+SERVER_EMAIL = os.environ.get('SERVER_EMAIL', 'noreply@example.com')
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+EMAIL_USE_TLS = str2bool(os.environ.get('EMAIL_USE_TLS', 'True'))
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 
 
 # ### DYNAMIC_DATATB Settings ###
