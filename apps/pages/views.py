@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import views as auth_views
 from django.db import IntegrityError
-from .models import Patient, Professional, Consultation
+from .models import Patient, Professional, Consultation, ConsultationNote, ConsultationAttachment
 from django.contrib import messages
 from .forms import CustomLoginForm, UsernameRecoveryForm
 
@@ -356,6 +356,57 @@ def consult(request):
 # Add this temporary view for the "start session" button
 @login_required
 def start_session(request, consultation_id):
-    # This will be implemented later
-    messages.success(request, 'Sesión iniciada')
-    return redirect('consult')
+    consultation = get_object_or_404(Consultation, id=consultation_id)
+
+    # Authorization: allow if admin or assigned professional
+    is_admin = request.user.is_staff
+    try:
+        user_professional = Professional.objects.get(user=request.user)
+    except Professional.DoesNotExist:
+        user_professional = None
+    if not is_admin and (not user_professional or user_professional != consultation.professional):
+        messages.error(request, 'No tienes permiso para acceder a esta consulta.')
+        return redirect('consult')
+
+    from .forms import NoteForm, AttachmentForm  # local import to avoid circular in some reload cases
+
+    note_form = NoteForm(prefix='note')
+    attachment_form = AttachmentForm(prefix='attach')
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'add_note':
+            note_form = NoteForm(request.POST, prefix='note')
+            if note_form.is_valid():
+                note = note_form.save(commit=False)
+                note.consultation = consultation
+                note.created_by = request.user
+                note.save()
+                messages.success(request, 'Nota agregada correctamente.')
+                return redirect('start_session', consultation_id=consultation.id)
+        elif action == 'add_attachment':
+            attachment_form = AttachmentForm(request.POST, request.FILES, prefix='attach')
+            if attachment_form.is_valid():
+                attachment = attachment_form.save(commit=False)
+                attachment.consultation = consultation
+                attachment.uploaded_by = request.user
+                attachment.save()
+                messages.success(request, 'Documento agregado correctamente.')
+                return redirect('start_session', consultation_id=consultation.id)
+
+    notes = consultation.session_notes.all()
+    attachments = consultation.attachments.all()
+
+    # Group attachments by type for easier display
+    grouped_attachments = {}
+    for att in attachments:
+        grouped_attachments.setdefault(att.file_type, []).append(att)
+
+    return render(request, 'pages/consult_session.html', {
+        'segment': 'citas',
+        'consultation': consultation,
+        'note_form': note_form,
+        'attachment_form': attachment_form,
+        'notes': notes,
+        'grouped_attachments': grouped_attachments,
+    })

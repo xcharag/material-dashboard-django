@@ -1,0 +1,135 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+{% load path_extras %}
+{% block title %} Sesión de Consulta {% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card my-4">
+        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-1">
+          <div class="bg-gradient-success shadow-success border-radius-lg pt-4 pb-3 d-flex justify-content-between align-items-center">
+            <h6 class="text-white text-capitalize ps-3 mb-0">Sesión con {{ consultation.patient.first_name }} {{ consultation.patient.last_name }}</h6>
+            <a href="{% url 'consult' %}" class="btn btn-sm btn-outline-light me-3">Volver</a>
+          </div>
+        </div>
+        <div class="card-body pt-3">
+          <div class="row mb-3">
+            <div class="col-md-3">
+              <p class="text-xs text-secondary mb-1">Fecha</p>
+              <h6 class="mb-0">{{ consultation.date|date:"d/m/Y" }}</h6>
+            </div>
+            <div class="col-md-3">
+              <p class="text-xs text-secondary mb-1">Hora</p>
+              <h6 class="mb-0">{{ consultation.time }}</h6>
+            </div>
+            <div class="col-md-3">
+              <p class="text-xs text-secondary mb-1">Consultorio</p>
+              <h6 class="mb-0">{{ consultation.consultory }}</h6>
+            </div>
+            <div class="col-md-3">
+              <p class="text-xs text-secondary mb-1">Profesional</p>
+              <h6 class="mb-0">{{ consultation.professional.first_name }} {{ consultation.professional.last_name }}</h6>
+            </div>
+          </div>
+          <hr>
+          <!-- Flash messages -->
+          {% if messages %}
+            {% for message in messages %}
+              <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %} text-white" role="alert">
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+          <div class="row">
+            <div class="col-lg-6">
+              <h6 class="mb-3">Agregar Nota</h6>
+              <form method="post" class="mb-4">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_note">
+                {{ note_form.non_field_errors }}
+                <div class="mb-3">
+                  {{ note_form.content.label_tag }}
+                  {{ note_form.content }}
+                  {% if note_form.content.errors %}
+                    <div class="text-danger small">{{ note_form.content.errors|join:', ' }}</div>
+                  {% endif %}
+                </div>
+                <button type="submit" class="btn btn-success w-100">Guardar Nota</button>
+              </form>
+              <h6 class="mb-3">Notas de la Sesión</h6>
+              <div class="list-group mb-4" style="max-height: 400px; overflow-y:auto;">
+                {% for note in notes %}
+                  <div class="list-group-item border mb-2 rounded-2">
+                    <div class="d-flex justify-content-between">
+                      <small class="text-secondary">{{ note.created_at|date:"d/m/Y H:i" }}</small>
+                      <small class="text-secondary">{{ note.created_by.first_name }} {{ note.created_by.last_name }}</small>
+                    </div>
+                    <p class="mb-1 mt-2" style="white-space: pre-wrap;">{{ note.content }}</p>
+                  </div>
+                {% empty %}
+                  <p class="text-secondary">No hay notas registradas aún.</p>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <h6 class="mb-3">Agregar Documento (PDF)</h6>
+              <form method="post" enctype="multipart/form-data" class="mb-4">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_attachment">
+                {{ attachment_form.non_field_errors }}
+                <div class="mb-3">
+                  {{ attachment_form.file_type.label_tag }}
+                  {{ attachment_form.file_type }}
+                  {% if attachment_form.file_type.errors %}
+                    <div class="text-danger small">{{ attachment_form.file_type.errors|join:', ' }}</div>
+                  {% endif %}
+                </div>
+                <div class="mb-3">
+                  {{ attachment_form.file.label_tag }}
+                  {{ attachment_form.file }}
+                  {% if attachment_form.file.errors %}
+                    <div class="text-danger small">{{ attachment_form.file.errors|join:', ' }}</div>
+                  {% endif %}
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Subir Documento</button>
+              </form>
+              <h6 class="mb-3">Documentos</h6>
+              {% if grouped_attachments %}
+                <div class="accordion" id="attachmentsAccordion">
+                  {% for type, items in grouped_attachments.items %}
+                    <div class="accordion-item mb-2">
+                      <h2 class="accordion-header" id="heading-{{ type }}">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ type }}" aria-expanded="false" aria-controls="collapse-{{ type }}">
+                          {{ type|title }} ({{ items|length }})
+                        </button>
+                      </h2>
+                      <div id="collapse-{{ type }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ type }}" data-bs-parent="#attachmentsAccordion">
+                        <div class="accordion-body p-2">
+                          <ul class="list-group">
+                            {% for att in items %}
+                              <li class="list-group-item d-flex justify-content-between align-items-center small">
+                                <div>
+                                  <i class="material-icons text-danger me-1" style="font-size:16px;">picture_as_pdf</i>
+                                  <a href="{{ att.file.url }}" target="_blank">{{ att.file.name|basename }}</a>
+                                  <span class="text-secondary ms-2">{{ att.uploaded_at|date:"d/m/Y H:i" }}</span>
+                                </div>
+                              </li>
+                            {% endfor %}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <p class="text-secondary">No hay documentos subidos.</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

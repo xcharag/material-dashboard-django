@@ -58,3 +58,44 @@ class Consultation(models.Model):
 
     def __str__(self):
         return f"{self.patient} - {self.date} {self.time}"
+
+
+# --- New models for session notes and attachments ---
+def consultation_upload_path(instance, filename):
+    # Files stored under consultations/<consultation_id>/<type>/<filename>
+    folder = instance.file_type if hasattr(instance, 'file_type') and instance.file_type else 'otros'
+    return f"consultations/{instance.consultation_id}/{folder}/{filename}"
+
+
+class ConsultationNote(models.Model):
+    consultation = models.ForeignKey(Consultation, on_delete=models.CASCADE, related_name='session_notes')
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='consultation_notes')
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Nota #{self.id} - Cita {self.consultation_id}"
+
+
+class ConsultationAttachment(models.Model):
+    TYPE_CHOICES = [
+        ('notas', 'Notas'),
+        ('examenes', 'Exámenes'),
+        ('resultados', 'Resultados'),
+        ('documentos', 'Documentos'),
+    ]
+
+    consultation = models.ForeignKey(Consultation, on_delete=models.CASCADE, related_name='attachments')
+    file = models.FileField(upload_to=consultation_upload_path)
+    file_type = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='consultation_attachments')
+
+    class Meta:
+        ordering = ['-uploaded_at']
+
+    def __str__(self):
+        return f"Adjunto #{self.id} - {self.file_type}"

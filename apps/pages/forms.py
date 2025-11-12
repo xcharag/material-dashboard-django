@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.models import User
 from django.utils.translation import gettext_lazy as _
+from .models import ConsultationNote, ConsultationAttachment
 
 class CustomLoginForm(AuthenticationForm):
     username = forms.CharField(
@@ -42,3 +43,35 @@ class UsernameRecoveryForm(forms.Form):
                 "No se encontró ninguna cuenta con este correo electrónico."
             )
         return email
+
+
+class NoteForm(forms.ModelForm):
+    class Meta:
+        model = ConsultationNote
+        fields = ['content']
+        widgets = {
+            'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Escribe tus notas aquí...'}),
+        }
+        labels = {
+            'content': 'Notas de la sesión',
+        }
+
+
+class AttachmentForm(forms.ModelForm):
+    class Meta:
+        model = ConsultationAttachment
+        fields = ['file_type', 'file']
+        widgets = {
+            'file_type': forms.Select(attrs={'class': 'form-control'}),
+            'file': forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': 'application/pdf'}),
+        }
+        labels = {
+            'file_type': 'Tipo de documento',
+            'file': 'Archivo (PDF)',
+        }
+
+    def clean_file(self):
+        f = self.cleaned_data.get('file')
+        if f and not f.name.lower().endswith('.pdf'):
+            raise forms.ValidationError('Solo se permiten archivos PDF.')
+        return f
