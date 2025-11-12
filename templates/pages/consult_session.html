@@ -59,14 +59,14 @@
                     <input type="hidden" name="action" value="add_note">
                     {{ note_form.non_field_errors }}
                     <div class="mb-3">
-                      {{ note_form.title.label_tag }}
+                      <label class="form-label fw-bold text-dark" for="{{ note_form.title.id_for_label }}">{{ note_form.fields.title.label }}</label>
                       {{ note_form.title }}
                       {% if note_form.title.errors %}
                         <div class="text-danger small">{{ note_form.title.errors|join:', ' }}</div>
                       {% endif %}
                     </div>
                     <div class="mb-3">
-                      {{ note_form.content.label_tag }}
+                      <label class="form-label fw-bold text-dark" for="{{ note_form.content.id_for_label }}">{{ note_form.fields.content.label }}</label>
                       {{ note_form.content }}
                       {% if note_form.content.errors %}
                         <div class="text-danger small">{{ note_form.content.errors|join:', ' }}</div>
@@ -165,7 +165,7 @@
                     <input type="hidden" name="action" value="add_attachment">
                     {{ attachment_form.non_field_errors }}
                     <div class="mb-3">
-                      {{ attachment_form.file_type.label_tag }}
+                      <label class="form-label fw-bold text-dark" for="{{ attachment_form.file_type.id_for_label }}">{{ attachment_form.fields.file_type.label }}</label>
                       {{ attachment_form.file_type }}
                       {% if attachment_form.file_type.errors %}
                         <div class="text-danger small">{{ attachment_form.file_type.errors|join:', ' }}</div>
@@ -244,7 +244,7 @@
                                             </div>
                                             <div class="mb-3">
                                               <label class="form-label">Tipo</label>
-                                              <select name="rename-file_type" class="form-control">
+                                              <select name="rename-file_type" class="form-select">
                                                 {% for val,label in att.TYPE_CHOICES %}
                                                   <option value="{{ val }}" {% if val == att.file_type %}selected{% endif %}>{{ label }}</option>
                                                 {% endfor %}

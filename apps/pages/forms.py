@@ -50,8 +50,8 @@ class NoteForm(forms.ModelForm):
         model = ConsultationNote
         fields = ['title', 'content']
         widgets = {
-            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Título (opcional)'}),
-            'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Escribe tus notas aquí...'}),
+            'title': forms.TextInput(attrs={'class': 'form-control bg-light', 'placeholder': 'Título (opcional)'}),
+            'content': forms.Textarea(attrs={'class': 'form-control bg-light', 'rows': 4, 'placeholder': 'Escribe tus notas aquí...'}),
         }
         labels = {
             'title': 'Título',
@@ -64,7 +64,7 @@ class AttachmentForm(forms.ModelForm):
         model = ConsultationAttachment
         fields = ['file_type', 'display_name', 'file']
         widgets = {
-            'file_type': forms.Select(attrs={'class': 'form-control'}),
+            'file_type': forms.Select(attrs={'class': 'form-select'}),
             'display_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre para mostrar (opcional)'}),
             'file': forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.pdf,.doc,.docx,.txt,.md'}),
         }
@@ -89,7 +89,7 @@ class AttachmentRenameForm(forms.ModelForm):
         fields = ['display_name', 'file_type']
         widgets = {
             'display_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'file_type': forms.Select(attrs={'class': 'form-control'}),
+            'file_type': forms.Select(attrs={'class': 'form-select'}),
         }
         labels = {
             'display_name': 'Nombre',
