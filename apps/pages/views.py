@@ -368,10 +368,12 @@ def start_session(request, consultation_id):
         messages.error(request, 'No tienes permiso para acceder a esta consulta.')
         return redirect('consult')
 
-    from .forms import NoteForm, AttachmentForm  # local import to avoid circular in some reload cases
+    from .forms import NoteForm, AttachmentForm, NoteEditForm, AttachmentRenameForm  # local import to avoid circular in some reload cases
 
     note_form = NoteForm(prefix='note')
     attachment_form = AttachmentForm(prefix='attach')
+    note_edit_form = None
+    attachment_rename_form = None
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -384,6 +386,26 @@ def start_session(request, consultation_id):
                 note.save()
                 messages.success(request, 'Nota agregada correctamente.')
                 return redirect('start_session', consultation_id=consultation.id)
+        elif action == 'edit_note':
+            note_id = request.POST.get('note_id')
+            note = get_object_or_404(ConsultationNote, id=note_id, consultation=consultation)
+            if not is_admin and note.created_by != request.user:
+                messages.error(request, 'No puedes editar esta nota.')
+                return redirect('start_session', consultation_id=consultation.id)
+            note_edit_form = NoteEditForm(request.POST, instance=note, prefix='editnote')
+            if note_edit_form.is_valid():
+                note_edit_form.save()
+                messages.success(request, 'Nota actualizada correctamente.')
+                return redirect('start_session', consultation_id=consultation.id)
+        elif action == 'delete_note':
+            note_id = request.POST.get('note_id')
+            note = get_object_or_404(ConsultationNote, id=note_id, consultation=consultation)
+            if not is_admin and note.created_by != request.user:
+                messages.error(request, 'No puedes eliminar esta nota.')
+                return redirect('start_session', consultation_id=consultation.id)
+            note.delete()
+            messages.success(request, 'Nota eliminada correctamente.')
+            return redirect('start_session', consultation_id=consultation.id)
         elif action == 'add_attachment':
             attachment_form = AttachmentForm(request.POST, request.FILES, prefix='attach')
             if attachment_form.is_valid():
@@ -393,6 +415,33 @@ def start_session(request, consultation_id):
                 attachment.save()
                 messages.success(request, 'Documento agregado correctamente.')
                 return redirect('start_session', consultation_id=consultation.id)
+        elif action == 'edit_attachment':
+            att_id = request.POST.get('attachment_id')
+            att = get_object_or_404(ConsultationAttachment, id=att_id, consultation=consultation)
+            if not is_admin and att.uploaded_by != request.user:
+                messages.error(request, 'No puedes editar este adjunto.')
+                return redirect('start_session', consultation_id=consultation.id)
+            attachment_rename_form = AttachmentRenameForm(request.POST, instance=att, prefix='rename')
+            if attachment_rename_form.is_valid():
+                attachment_rename_form.save()
+                messages.success(request, 'Adjunto actualizado correctamente.')
+                return redirect('start_session', consultation_id=consultation.id)
+        elif action == 'delete_attachment':
+            att_id = request.POST.get('attachment_id')
+            att = get_object_or_404(ConsultationAttachment, id=att_id, consultation=consultation)
+            if not is_admin and att.uploaded_by != request.user:
+                messages.error(request, 'No puedes eliminar este adjunto.')
+                return redirect('start_session', consultation_id=consultation.id)
+            # delete file then model
+            storage = att.file.storage
+            name = att.file.name
+            att.delete()
+            try:
+                storage.delete(name)
+            except Exception:
+                pass
+            messages.success(request, 'Adjunto eliminado correctamente.')
+            return redirect('start_session', consultation_id=consultation.id)
 
     notes = consultation.session_notes.all()
     attachments = consultation.attachments.all()
@@ -407,6 +456,8 @@ def start_session(request, consultation_id):
         'consultation': consultation,
         'note_form': note_form,
         'attachment_form': attachment_form,
+        'note_edit_form': note_edit_form,
+        'attachment_rename_form': attachment_rename_form,
         'notes': notes,
         'grouped_attachments': grouped_attachments,
     })

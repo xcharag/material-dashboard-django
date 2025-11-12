@@ -48,30 +48,63 @@ class UsernameRecoveryForm(forms.Form):
 class NoteForm(forms.ModelForm):
     class Meta:
         model = ConsultationNote
-        fields = ['content']
+        fields = ['title', 'content']
         widgets = {
-            'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Escribe tus notas aquí...'}),
+            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Título (opcional)'}),
+            'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Escribe tus notas aquí...'}),
         }
         labels = {
-            'content': 'Notas de la sesión',
+            'title': 'Título',
+            'content': 'Contenido',
         }
 
 
 class AttachmentForm(forms.ModelForm):
     class Meta:
         model = ConsultationAttachment
-        fields = ['file_type', 'file']
+        fields = ['file_type', 'display_name', 'file']
         widgets = {
             'file_type': forms.Select(attrs={'class': 'form-control'}),
-            'file': forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': 'application/pdf'}),
+            'display_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre para mostrar (opcional)'}),
+            'file': forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.pdf,.doc,.docx,.txt,.md'}),
         }
         labels = {
             'file_type': 'Tipo de documento',
-            'file': 'Archivo (PDF)',
+            'display_name': 'Nombre',
+            'file': 'Archivo',
         }
 
     def clean_file(self):
         f = self.cleaned_data.get('file')
-        if f and not f.name.lower().endswith('.pdf'):
-            raise forms.ValidationError('Solo se permiten archivos PDF.')
+        if f:
+            allowed = ('.pdf', '.doc', '.docx', '.txt', '.md')
+            if not f.name.lower().endswith(allowed):
+                raise forms.ValidationError('Formatos permitidos: PDF, DOC, DOCX, TXT, MD.')
         return f
+
+
+class AttachmentRenameForm(forms.ModelForm):
+    class Meta:
+        model = ConsultationAttachment
+        fields = ['display_name', 'file_type']
+        widgets = {
+            'display_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'file_type': forms.Select(attrs={'class': 'form-control'}),
+        }
+        labels = {
+            'display_name': 'Nombre',
+            'file_type': 'Tipo',
+        }
+
+class NoteEditForm(forms.ModelForm):
+    class Meta:
+        model = ConsultationNote
+        fields = ['title', 'content']
+        widgets = {
+            'title': forms.TextInput(attrs={'class': 'form-control'}),
+            'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+        }
+        labels = {
+            'title': 'Título',
+            'content': 'Contenido',
+        }

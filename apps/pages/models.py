@@ -69,8 +69,10 @@ def consultation_upload_path(instance, filename):
 
 class ConsultationNote(models.Model):
     consultation = models.ForeignKey(Consultation, on_delete=models.CASCADE, related_name='session_notes')
+    title = models.CharField(max_length=200, blank=True, default='')
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='consultation_notes')
 
     class Meta:
@@ -91,6 +93,7 @@ class ConsultationAttachment(models.Model):
     consultation = models.ForeignKey(Consultation, on_delete=models.CASCADE, related_name='attachments')
     file = models.FileField(upload_to=consultation_upload_path)
     file_type = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    display_name = models.CharField(max_length=255, blank=True, default='')
     uploaded_at = models.DateTimeField(auto_now_add=True)
     uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='consultation_attachments')
 
@@ -99,3 +102,9 @@ class ConsultationAttachment(models.Model):
 
     def __str__(self):
         return f"Adjunto #{self.id} - {self.file_type}"
+
+    def save(self, *args, **kwargs):
+        # If no display name, fallback to file base name
+        if not self.display_name and self.file:
+            self.display_name = str(self.file.name).split('/')[-1]
+        super().save(*args, **kwargs)
