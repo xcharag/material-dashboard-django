@@ -91,7 +91,7 @@
                   <select name="professional" id="professional" class="form-control" required>
                     <option value="">Seleccionar profesional</option>
                     {% for prof in all_professionals %}
-                      <option value="{{ prof.id }}">{{ prof.first_name }} {{ prof.last_name }} ({{ prof.get_role_display }})</option>
+                      <option value="{{ prof.id }}"{% if forloop.first %} selected{% endif %}>{{ prof.first_name }} {{ prof.last_name }} ({{ prof.get_role_display }})</option>
                     {% endfor %}
                   </select>
                 </div>
@@ -212,7 +212,7 @@
 
 {% endblock content %}
 
-{% block scripts %}
+{% block extra_js %}
 <script>
   (function() {
     function get(url) { return fetch(url, {credentials:'same-origin'}).then(r => r.json()); }
@@ -268,7 +268,9 @@
       if (date) date.addEventListener('change', refreshSlots);
       if (dur) dur.addEventListener('input', refreshSlots);
       if (prof) prof.addEventListener('change', refreshSlots);
+      // Trigger initial load if date already chosen or for admin with auto-selected professional
+      if (date && date.value) { refreshSlots(); }
     });
   })();
 </script>
-{% endblock scripts %}
+{% endblock extra_js %}

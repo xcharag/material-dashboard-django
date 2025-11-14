@@ -424,7 +424,7 @@ def consult(request):
     ).order_by('date', 'time').first()
 
     return render(request, 'pages/consult.html', {
-        'segment': 'citas',
+        'segment': 'consult',
         'patients': patients,
         'consultations': consultations,
         'all_professionals': all_professionals,
@@ -537,7 +537,7 @@ def start_session(request, consultation_id):
         grouped_attachments.setdefault(att.file_type, []).append(att)
 
     return render(request, 'pages/consult_session.html', {
-        'segment': 'citas',
+        'segment': 'consult',
         'consultation': consultation,
         'note_form': note_form,
         'attachment_form': attachment_form,
