@@ -21,8 +21,19 @@
       <div class="card my-4">
         <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-1">
           <div class="bg-gradient-success shadow-success border-radius-lg pt-4 pb-3 d-flex justify-content-between align-items-center">
-            <h6 class="text-white text-capitalize ps-3 mb-0">Sesión con {{ consultation.patient.first_name }} {{ consultation.patient.last_name }}</h6>
-            <a href="{% url 'consult' %}" class="btn btn-sm btn-outline-light me-3">Volver</a>
+            <div class="d-flex align-items-center">
+              <h6 class="text-white text-capitalize ps-3 mb-0">Sesión con {{ consultation.patient.first_name }} {{ consultation.patient.last_name }}</h6>
+              <span class="badge ms-3 bg-gradient-{% if consultation.status == 'pending' %}warning{% elif consultation.status == 'attended' %}info{% elif consultation.status == 'completed' %}secondary{% else %}danger{% endif %}">{{ consultation.get_status_display }}</span>
+            </div>
+            <div class="me-3">
+              <a href="{% url 'consult' %}" class="btn btn-sm btn-outline-light me-2">Volver</a>
+              {% if consultation.status != 'completed' %}
+              <form method="post" action="{% url 'end_session' consultation.id %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-light text-success">Terminar Cita</button>
+              </form>
+              {% endif %}
+            </div>
           </div>
         </div>
         <div class="card-body pt-3">

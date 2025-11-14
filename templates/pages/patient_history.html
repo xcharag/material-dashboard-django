@@ -1,0 +1,93 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+
+{% block title %} Historial de {{ patient.first_name }} {% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="row">
+    <div class="col-12">
+      <div class="card my-4">
+        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
+          <div class="bg-gradient-success shadow-success border-radius-lg pt-4 pb-3 d-flex justify-content-between align-items-center">
+            <h6 class="text-white text-capitalize ps-3 mb-0">Historial de {{ patient.first_name }} {{ patient.last_name }}</h6>
+            <a href="{% url 'my_patients' %}" class="btn btn-sm btn-outline-light me-3">Volver</a>
+          </div>
+        </div>
+        <div class="card-body px-4 pb-3">
+          <div class="row mb-4">
+            <div class="col-md-4">
+              <p class="text-xs text-secondary mb-1">Correo</p>
+              <h6 class="mb-0">{{ patient.email|default:'-' }}</h6>
+            </div>
+            <div class="col-md-4">
+              <p class="text-xs text-secondary mb-1">Teléfono</p>
+              <h6 class="mb-0">{{ patient.phone|default:'-' }}</h6>
+            </div>
+            <div class="col-md-4">
+              <p class="text-xs text-secondary mb-1">Total Pagado</p>
+              <h6 class="mb-0">${{ total_paid|floatformat:2 }}</h6>
+            </div>
+          </div>
+          <hr>
+          <h6 class="mb-3">Consultas</h6>
+          <div class="table-responsive mb-4">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Hora</th>
+                  <th>Consultorio</th>
+                  <th>Estado</th>
+                  <th>Costo</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for c in consultations %}
+                <tr>
+                  <td>{{ c.date|date:'d/m/Y' }}</td>
+                  <td>{{ c.time }}</td>
+                  <td>{{ c.consultory }}</td>
+                  <td><span class="badge bg-gradient-{% if c.status == 'pending' %}warning{% elif c.status == 'attended' %}info{% elif c.status == 'completed' %}secondary{% else %}danger{% endif %}">{{ c.get_status_display }}</span></td>
+                  <td>${{ c.charge }}</td>
+                  <td><a href="{% url 'start_session' c.id %}" class="btn btn-sm btn-outline-success">Abrir</a></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-secondary">Sin consultas</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <h6 class="mb-3">Documentos</h6>
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Tipo</th>
+                  <th>Consulta</th>
+                  <th>Fecha</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for att in attachments %}
+                <tr>
+                  <td>{{ att.display_name }}</td>
+                  <td>{{ att.get_file_type_display }}</td>
+                  <td>{{ att.consultation.date|date:'d/m/Y' }} {{ att.consultation.time }}</td>
+                  <td>{{ att.uploaded_at|date:'d/m/Y H:i' }}</td>
+                  <td><a href="{{ att.file.url }}" target="_blank" class="btn btn-sm btn-outline-info">Ver</a></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-secondary">Sin documentos</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

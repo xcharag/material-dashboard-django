@@ -7,6 +7,12 @@ from django.db import IntegrityError
 from .models import Patient, Professional, Consultation, ConsultationNote, ConsultationAttachment
 from django.contrib import messages
 from .forms import CustomLoginForm, UsernameRecoveryForm
+from .forms import ProfessionalProfileForm, ProfessionalContactForm
+from .forms import AvailabilityExceptionForm
+from django.http import JsonResponse
+from datetime import datetime as dt
+from .utils.availability import generate_slots
+from datetime import time as dtime
 
 # Create your views here.
 
@@ -277,6 +283,59 @@ def professionals(request):
 
 
 @login_required
+def my_patients(request):
+    is_staff = request.user.is_staff
+    prof = Professional.objects.filter(user=request.user).first()
+    if not is_staff and not prof:
+        messages.error(request, 'No tienes acceso a esta sección.')
+        return redirect('index')
+
+    patients_qs = Patient.objects.all() if is_staff else Patient.objects.filter(professional=prof)
+    patients_qs = patients_qs.order_by('first_name', 'last_name')
+
+    # Precompute aggregates
+    data = []
+    for p in patients_qs:
+        consultations = Consultation.objects.filter(patient=p)
+        total_paid = sum([c.charge for c in consultations]) if consultations.exists() else 0
+        data.append({
+            'patient': p,
+            'consult_count': consultations.count(),
+            'total_paid': total_paid,
+        })
+
+    return render(request, 'pages/my_patients.html', {
+        'segment': 'my_patients',
+        'patients_data': data,
+        'is_admin': is_staff,
+    })
+
+
+@login_required
+def patient_history(request, patient_id):
+    patient = get_object_or_404(Patient, id=patient_id)
+    is_staff = request.user.is_staff
+    prof = Professional.objects.filter(user=request.user).first()
+    if not is_staff:
+        if not prof or patient.professional_id != prof.id:
+            messages.error(request, 'No tienes permiso para ver este paciente.')
+            return redirect('my_patients')
+
+    consultations = Consultation.objects.filter(patient=patient).order_by('-date','-time')
+    total_paid = sum([c.charge for c in consultations]) if consultations.exists() else 0
+    attachments = ConsultationAttachment.objects.filter(consultation__in=consultations).order_by('-uploaded_at')
+
+    return render(request, 'pages/patient_history.html', {
+        'segment': 'my_patients',
+        'patient': patient,
+        'consultations': consultations,
+        'attachments': attachments,
+        'total_paid': total_paid,
+        'is_admin': is_staff,
+    })
+
+
+@login_required
 def consult(request):
     # Determine if user is a professional or admin
     is_admin = request.user.is_staff
@@ -332,11 +391,31 @@ def consult(request):
     # Get all professionals for admin selection
     all_professionals = Professional.objects.all() if is_admin else None
 
-    # Get consultations
-    consultations = Consultation.objects.all() if is_admin else Consultation.objects.filter(
-        professional=professional,
-    )
-    consultations = consultations.order_by('date', 'time')
+    # Auto update: mark past pending as no_show
+    now_dt = datetime.now()
+    pending_qs = Consultation.objects.filter(date__lt=now_dt.date(), status='pending')
+    # also same-day but time passed
+    pending_qs_same = Consultation.objects.filter(date=now_dt.date(), time__lt=now_dt.time(), status='pending')
+    pending_qs = pending_qs.union(pending_qs_same)
+    for c in pending_qs:
+        c.status = 'no_show'
+        c.save(update_fields=['status'])
+
+    # Get consultations with filters
+    qs = Consultation.objects.all() if is_admin else Consultation.objects.filter(professional=professional)
+    patient_filter = request.GET.get('patient')
+    consultory_filter = request.GET.get('consultory')
+    date_filter = request.GET.get('date')
+    status_filter = request.GET.get('status')
+    if patient_filter:
+        qs = qs.filter(patient_id=patient_filter)
+    if consultory_filter:
+        qs = qs.filter(consultory=consultory_filter)
+    if date_filter:
+        qs = qs.filter(date=date_filter)
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+    consultations = qs.order_by('date', 'time')
 
     # Get next consultation for the professional
     next_consultation = Consultation.objects.all() if is_admin else Consultation.objects.filter(
@@ -349,7 +428,8 @@ def consult(request):
         'patients': patients,
         'consultations': consultations,
         'all_professionals': all_professionals,
-        'is_admin': is_admin
+        'is_admin': is_admin,
+        'status_choices': Consultation.STATUS_CHOICES,
     })
 
 
@@ -443,6 +523,11 @@ def start_session(request, consultation_id):
             messages.success(request, 'Adjunto eliminado correctamente.')
             return redirect('start_session', consultation_id=consultation.id)
 
+    # Update status to attended when session starts if still pending
+    if consultation.status == 'pending':
+        consultation.status = 'attended'
+        consultation.save(update_fields=['status'])
+
     notes = consultation.session_notes.all()
     attachments = consultation.attachments.all()
 
@@ -461,3 +546,142 @@ def start_session(request, consultation_id):
         'notes': notes,
         'grouped_attachments': grouped_attachments,
     })
+
+
+@login_required
+def end_session(request, consultation_id):
+    consultation = get_object_or_404(Consultation, id=consultation_id)
+
+    # Authorization: allow if admin or assigned professional
+    is_admin = request.user.is_staff
+    user_professional = Professional.objects.filter(user=request.user).first()
+    if not is_admin and (not user_professional or user_professional != consultation.professional):
+        messages.error(request, 'No tienes permiso para terminar esta consulta.')
+        return redirect('consult')
+
+    consultation.status = 'completed'
+    consultation.save(update_fields=['status'])
+    messages.success(request, 'Consulta marcada como Terminada.')
+    return redirect('start_session', consultation_id=consultation.id)
+
+
+@login_required
+def profile(request):
+    # Logged in user may or may not be a professional
+    professional = None
+    try:
+        professional = Professional.objects.get(user=request.user)
+    except Professional.DoesNotExist:
+        professional = None
+
+    # Forms
+    profile_form = ProfessionalProfileForm(instance=professional) if professional else None
+    contact_form = ProfessionalContactForm()
+    exception_form = AvailabilityExceptionForm()
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'update_profile' and professional:
+            profile_form = ProfessionalProfileForm(request.POST, request.FILES, instance=professional)
+            if profile_form.is_valid():
+                profile_form.save()
+                messages.success(request, 'Perfil actualizado correctamente.')
+                return redirect('profile')
+        elif action == 'add_contact' and professional:
+            contact_form = ProfessionalContactForm(request.POST)
+            contact_form.initial['professional'] = professional
+            if contact_form.is_valid():
+                pc = contact_form.save(commit=False)
+                pc.professional = professional
+                pc.save()
+                messages.success(request, 'Contacto agregado.')
+                return redirect('profile')
+        elif action == 'delete_contact' and professional:
+            cid = request.POST.get('contact_id')
+            from .models import ProfessionalContact
+            contact = get_object_or_404(ProfessionalContact, id=cid, professional=professional)
+            contact.delete()
+            messages.success(request, 'Contacto eliminado.')
+            return redirect('profile')
+        elif action == 'update_availability' and professional:
+            # Expect fields like availability-<weekday>-closed, availability-<weekday>-start, availability-<weekday>-end
+            for wd in range(7):
+                key = f'availability-{wd}-closed'
+                is_closed = request.POST.get(key) == 'on'
+                start_raw = request.POST.get(f'availability-{wd}-start')
+                end_raw = request.POST.get(f'availability-{wd}-end')
+                avail, _ = professional.weekly_availability.get_or_create(weekday=wd)
+                avail.is_closed = is_closed
+                if not is_closed:
+                    try:
+                        start_parts = [int(x) for x in (start_raw or '09:00').split(':')]
+                        end_parts = [int(x) for x in (end_raw or '17:00').split(':')]
+                        avail.start_time = dtime(start_parts[0], start_parts[1])
+                        avail.end_time = dtime(end_parts[0], end_parts[1])
+                    except Exception:
+                        pass
+                else:
+                    avail.start_time = None
+                    avail.end_time = None
+                avail.save()
+            messages.success(request, 'Disponibilidad semanal actualizada.')
+            return redirect('profile')
+        elif action == 'add_exception' and professional:
+            exception_form = AvailabilityExceptionForm(request.POST)
+            if exception_form.is_valid():
+                ex = exception_form.save(commit=False)
+                ex.professional = professional
+                ex.save()
+                messages.success(request, 'Excepción agregada.')
+                return redirect('profile')
+        elif action == 'delete_exception' and professional:
+            ex_id = request.POST.get('exception_id')
+            from .models import AvailabilityException
+            ex = get_object_or_404(AvailabilityException, id=ex_id, professional=professional)
+            ex.delete()
+            messages.success(request, 'Excepción eliminada.')
+            return redirect('profile')
+
+    contacts = professional.contacts.all() if professional else []
+    availability = professional.weekly_availability.all() if professional else []
+    exceptions = professional.availability_exceptions.filter(date__gte=datetime.now().date()).order_by('date') if professional else []
+
+    return render(request, 'pages/profile.html', {
+        'segment': 'profile',
+        'professional': professional,
+        'profile_form': profile_form,
+        'contact_form': contact_form,
+        'contacts': contacts,
+        'availability': availability,
+        'exception_form': exception_form,
+        'exceptions': exceptions,
+    })
+
+
+@login_required
+def available_slots_api(request):
+    # Params: date (YYYY-MM-DD), duration (int minutes), professional_id(optional for admin)
+    date_str = request.GET.get('date')
+    duration = int(request.GET.get('duration', '60'))
+    prof_id = request.GET.get('professional_id')
+    if not date_str:
+        return JsonResponse({'error': 'Missing date'}, status=400)
+    try:
+        date_obj = dt.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'error': 'Invalid date format'}, status=400)
+
+    # Determine professional
+    if request.user.is_staff:
+        if not prof_id:
+            # For admin, require explicit professional selection; return empty list (no error)
+            return JsonResponse({'slots': []})
+        professional = get_object_or_404(Professional, id=prof_id)
+    else:
+        try:
+            professional = Professional.objects.get(user=request.user)
+        except Professional.DoesNotExist:
+            return JsonResponse({'error': 'Professional not found'}, status=404)
+
+    slots = generate_slots(professional, date_obj, duration_minutes=duration)
+    return JsonResponse({'slots': slots})

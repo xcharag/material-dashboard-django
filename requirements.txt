@@ -1,5 +1,6 @@
 # Core
 django==4.2.9
+Pillow==10.2.0
 python-dotenv==1.0.1
 str2bool==1.1
 

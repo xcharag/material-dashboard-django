@@ -3,6 +3,8 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.models import User
 from django.utils.translation import gettext_lazy as _
 from .models import ConsultationNote, ConsultationAttachment
+from .models import Professional, ProfessionalContact, WeeklyAvailability, AvailabilityException
+from django.forms import DateInput, TimeInput
 
 class CustomLoginForm(AuthenticationForm):
     username = forms.CharField(
@@ -108,3 +110,79 @@ class NoteEditForm(forms.ModelForm):
             'title': 'Título',
             'content': 'Contenido',
         }
+
+
+class ProfessionalProfileForm(forms.ModelForm):
+    class Meta:
+        model = Professional
+        fields = [
+            'first_name','last_name','profile_picture','biography','birth_date','gender','nationality',
+            'identification_type','identification_number','identification_extension','license_number',
+            'education','specializations','years_experience','languages_spoken','phone','email','specialty'
+        ]
+        widgets = {
+            'birth_date': forms.DateInput(attrs={'type':'date','class':'form-control'}),
+            'biography': forms.Textarea(attrs={'class':'form-control','rows':3}),
+            'education': forms.Textarea(attrs={'class':'form-control','rows':3}),
+            'specializations': forms.Textarea(attrs={'class':'form-control','rows':2}),
+            'languages_spoken': forms.TextInput(attrs={'class':'form-control','placeholder':'Ej: Español, Inglés'}),
+            'years_experience': forms.NumberInput(attrs={'class':'form-control'}),
+            'first_name': forms.TextInput(attrs={'class':'form-control'}),
+            'last_name': forms.TextInput(attrs={'class':'form-control'}),
+            'nationality': forms.TextInput(attrs={'class':'form-control'}),
+            'identification_number': forms.TextInput(attrs={'class':'form-control'}),
+            'identification_extension': forms.TextInput(attrs={'class':'form-control'}),
+            'license_number': forms.TextInput(attrs={'class':'form-control'}),
+            'phone': forms.TextInput(attrs={'class':'form-control'}),
+            'email': forms.EmailInput(attrs={'class':'form-control'}),
+            'specialty': forms.TextInput(attrs={'class':'form-control'}),
+            'gender': forms.Select(attrs={'class':'form-select'}),
+            'identification_type': forms.Select(attrs={'class':'form-select'}),
+        }
+
+class ProfessionalContactForm(forms.ModelForm):
+    class Meta:
+        model = ProfessionalContact
+        fields = ['type','label','value']
+        widgets = {
+            'type': forms.Select(attrs={'class':'form-select'}),
+            'label': forms.TextInput(attrs={'class':'form-control','placeholder':'Etiqueta/Descripción'}),
+            'value': forms.TextInput(attrs={'class':'form-control','placeholder':'Valor (URL, número, etc.)'}),
+        }
+
+    def clean_value(self):
+        value = self.cleaned_data['value']
+        prof = self.initial.get('professional')
+        if prof and ProfessionalContact.objects.filter(professional=prof, value=value).exists():
+            raise forms.ValidationError('Este valor ya está registrado.')
+        return value
+
+
+class AvailabilityExceptionForm(forms.ModelForm):
+    class Meta:
+        model = AvailabilityException
+        fields = ['date','start_time','end_time','is_closed']
+        widgets = {
+            'date': DateInput(attrs={'type':'date','class':'form-control'}),
+            'start_time': TimeInput(attrs={'type':'time','class':'form-control'}),
+            'end_time': TimeInput(attrs={'type':'time','class':'form-control'}),
+            'is_closed': forms.CheckboxInput(attrs={'class':'form-check-input'}),
+        }
+        labels = {
+            'date': 'Fecha',
+            'start_time': 'Hora Inicio',
+            'end_time': 'Hora Fin',
+            'is_closed': 'Cerrar todo el día',
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        is_closed = cleaned.get('is_closed')
+        start = cleaned.get('start_time')
+        end = cleaned.get('end_time')
+        if not is_closed and (not start or not end):
+            raise forms.ValidationError('Debe proporcionar hora inicio y fin o marcar como cerrado.')
+        if start and end and start >= end:
+            raise forms.ValidationError('La hora de inicio debe ser menor que la hora fin.')
+        return cleaned
+

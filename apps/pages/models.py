@@ -40,6 +40,30 @@ class Professional(models.Model):
     phone = models.CharField(max_length=20, blank=True, null=True)
     specialty = models.CharField(max_length=100, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    # Extended profile fields
+    profile_picture = models.ImageField(upload_to='profiles/', blank=True, null=True)
+    biography = models.TextField(blank=True, null=True)
+    birth_date = models.DateField(blank=True, null=True)
+    GENDER_CHOICES = [
+        ('male', 'Masculino'),
+        ('female', 'Femenino'),
+        ('other', 'Otro'),
+    ]
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True, null=True)
+    nationality = models.CharField(max_length=100, blank=True, null=True)
+    ID_TYPE_CHOICES = [
+        ('ci', 'CI'),
+        ('passport', 'Pasaporte'),
+        ('ci_extranjero', 'CI Extranjero'),
+    ]
+    identification_type = models.CharField(max_length=20, choices=ID_TYPE_CHOICES, blank=True, null=True)
+    identification_number = models.CharField(max_length=50, blank=True, null=True)
+    identification_extension = models.CharField(max_length=50, blank=True, null=True)
+    license_number = models.CharField(max_length=100, blank=True, null=True)
+    education = models.TextField(blank=True, null=True)
+    specializations = models.TextField(blank=True, null=True)
+    years_experience = models.IntegerField(blank=True, null=True)
+    languages_spoken = models.CharField(max_length=255, blank=True, null=True)
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.get_role_display()})"
@@ -55,6 +79,14 @@ class Consultation(models.Model):
     charge = models.DecimalField(max_digits=10, decimal_places=2)
     notes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pendiente'),
+        ('attended', 'Atendida'),
+        ('completed', 'Terminada'),
+        ('no_show', 'No Atendida'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
 
     def __str__(self):
         return f"{self.patient} - {self.date} {self.time}"
@@ -108,3 +140,72 @@ class ConsultationAttachment(models.Model):
         if not self.display_name and self.file:
             self.display_name = str(self.file.name).split('/')[-1]
         super().save(*args, **kwargs)
+
+
+# --- New models for professional contacts and availability ---
+class ProfessionalContact(models.Model):
+    class ContactType(models.TextChoices):
+        WEBSITE = 'website', 'Website'
+        PHONE = 'phone', 'Teléfono'
+        EMAIL = 'email', 'Correo'
+        SOCIAL = 'social', 'Redes Sociales'
+
+    professional = models.ForeignKey(Professional, on_delete=models.CASCADE, related_name='contacts')
+    type = models.CharField(max_length=20, choices=ContactType.choices)
+    label = models.CharField(max_length=100, blank=True, default='')
+    value = models.CharField(max_length=255)
+
+    class Meta:
+        unique_together = ('professional', 'value')
+
+    def __str__(self):
+        return f"{self.get_type_display()}: {self.value}"
+
+
+class WeeklyAvailability(models.Model):
+    WEEKDAY_CHOICES = [
+        (0, 'Lunes'),
+        (1, 'Martes'),
+        (2, 'Miércoles'),
+        (3, 'Jueves'),
+        (4, 'Viernes'),
+        (5, 'Sábado'),
+        (6, 'Domingo'),
+    ]
+
+    professional = models.ForeignKey(Professional, on_delete=models.CASCADE, related_name='weekly_availability')
+    weekday = models.IntegerField(choices=WEEKDAY_CHOICES)
+    start_time = models.TimeField(blank=True, null=True)
+    end_time = models.TimeField(blank=True, null=True)
+    is_closed = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('professional', 'weekday')
+        ordering = ['weekday']
+
+    def __str__(self):
+        return f"{self.get_weekday_display()} - {'Cerrado' if self.is_closed else f'{self.start_time}-{self.end_time}'}"
+
+
+class AvailabilityException(models.Model):
+    professional = models.ForeignKey(Professional, on_delete=models.CASCADE, related_name='availability_exceptions')
+    date = models.DateField()
+    start_time = models.TimeField(blank=True, null=True)
+    end_time = models.TimeField(blank=True, null=True)
+    is_closed = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('professional', 'date')
+        ordering = ['date']
+
+    def __str__(self):
+        return f"{self.date} - {'Cerrado' if self.is_closed else f'{self.start_time}-{self.end_time}'}"
+
+
+class ProfessionalMedia(models.Model):
+    professional = models.ForeignKey(Professional, on_delete=models.CASCADE, related_name='media')
+    image = models.ImageField(upload_to='professional_media/')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Media #{self.id} for {self.professional}"

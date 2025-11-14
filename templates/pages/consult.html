@@ -62,7 +62,9 @@
               <div class="col-md-6">
                 <div class="input-group input-group-static mb-4">
                   <label>Hora</label>
-                  <input type="time" name="time" class="form-control" required>
+                  <select name="time" id="time" class="form-control" required>
+                    <option value="">Seleccione una fecha para ver horarios</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -122,7 +124,40 @@
             <h6 class="text-white text-capitalize ps-3">Consultas Programadas</h6>
           </div>
         </div>
-        <div class="card-body px-0 pb-2">
+        <div class="card-body px-4 pb-2">
+          <form method="get" class="row g-2 mb-3">
+            <div class="col-md-3">
+              <select name="patient" class="form-select">
+                <option value="">Filtrar Paciente</option>
+                {% for p in patients %}
+                  <option value="{{ p.id }}" {% if request.GET.patient == p.id|stringformat:'s' %}selected{% endif %}>{{ p.first_name }} {{ p.last_name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-2">
+              <select name="consultory" class="form-select">
+                <option value="">Consultorio</option>
+                <option value="A1" {% if request.GET.consultory == 'A1' %}selected{% endif %}>A1</option>
+                <option value="A2" {% if request.GET.consultory == 'A2' %}selected{% endif %}>A2</option>
+                <option value="B1" {% if request.GET.consultory == 'B1' %}selected{% endif %}>B1</option>
+                <option value="B2" {% if request.GET.consultory == 'B2' %}selected{% endif %}>B2</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <input type="date" name="date" value="{{ request.GET.date }}" class="form-control" />
+            </div>
+            <div class="col-md-3">
+              <select name="status" class="form-select">
+                <option value="">Estado</option>
+                {% for code,label in status_choices %}
+                  <option value="{{ code }}" {% if request.GET.status == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-2 d-flex">
+              <button class="btn btn-success w-100">Filtrar</button>
+            </div>
+          </form>
           <div class="table-responsive p-0">
             <table class="table align-items-center mb-0">
               <thead>
@@ -131,6 +166,7 @@
                   <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Consultorio</th>
                   <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Fecha y Hora</th>
                   <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Costo</th>
+                  <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Estado</th>
                   <th class="text-secondary opacity-7"></th>
                 </tr>
               </thead>
@@ -154,9 +190,10 @@
                     <span class="text-secondary text-xs font-weight-bold">${{ consult.charge }}</span>
                   </td>
                   <td class="align-middle">
-                    <a href="{% url 'start_session' consult.id %}" class="btn btn-sm bg-gradient-success">
-                      Iniciar Cita
-                    </a>
+                    <span class="badge bg-gradient-{% if consult.status == 'pending' %}warning{% elif consult.status == 'attended' %}info{% elif consult.status == 'completed' %}secondary{% else %}danger{% endif %}">{{ consult.get_status_display }}</span>
+                  </td>
+                  <td class="align-middle">
+                    <a href="{% url 'start_session' consult.id %}" class="btn btn-sm bg-gradient-success mb-1">Iniciar</a>
                   </td>
                 </tr>
                 {% empty %}
@@ -174,3 +211,64 @@
 </div>
 
 {% endblock content %}
+
+{% block scripts %}
+<script>
+  (function() {
+    function get(url) { return fetch(url, {credentials:'same-origin'}).then(r => r.json()); }
+    function refreshSlots() {
+      var sel = document.getElementById('time');
+      var date = document.querySelector('input[name="date"]').value;
+      var duration = document.querySelector('input[name="duration"]').value || '60';
+      var professional = document.getElementById('professional');
+      var params = new URLSearchParams();
+
+      // Preconditions
+      if (professional && !professional.value) {
+        sel.innerHTML = '<option value="">Seleccione un profesional</option>';
+        return;
+      }
+      if (!date) {
+        sel.innerHTML = '<option value="">Seleccione una fecha</option>';
+        return;
+      }
+
+      params.set('date', date);
+      params.set('duration', duration);
+      if (professional && professional.value) {
+        params.set('professional_id', professional.value);
+      }
+      get('{% url "available_slots_api" %}?'+params.toString()).then(data => {
+        sel.innerHTML = '';
+        if (data.slots && data.slots.length) {
+          var def = document.createElement('option');
+          def.value = '';
+          def.textContent = 'Seleccionar hora disponible';
+          sel.appendChild(def);
+          data.slots.forEach(function(s){
+            var opt = document.createElement('option');
+            opt.value = s;
+            opt.textContent = s;
+            sel.appendChild(opt);
+          });
+        } else {
+          var opt = document.createElement('option');
+          opt.value = '';
+          opt.textContent = 'No hay horarios disponibles';
+          sel.appendChild(opt);
+        }
+      }).catch(() => {
+        sel.innerHTML = '<option value="">Error al cargar horarios</option>';
+      });
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      var date = document.querySelector('input[name="date"]');
+      var dur = document.querySelector('input[name="duration"]');
+      var prof = document.getElementById('professional');
+      if (date) date.addEventListener('change', refreshSlots);
+      if (dur) dur.addEventListener('input', refreshSlots);
+      if (prof) prof.addEventListener('change', refreshSlots);
+    });
+  })();
+</script>
+{% endblock scripts %}
