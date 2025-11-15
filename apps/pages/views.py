@@ -1029,16 +1029,27 @@ def calendar_events_api(request):
         end_dt = start_dt + timedelta(minutes=c.duration or 60)
         patient = c.patient
         color = patient.color if patient and patient.color else _fallback_color(patient.id if patient else c.id)
+        professional = c.professional
+        consultorio_name = c.consultorio_fk.name if c.consultorio_fk else c.consultory
+        patient_name = ((patient.first_name + ' ' + patient.last_name).strip()) if patient else 'Consulta'
+        professional_name = ((professional.first_name + ' ' + professional.last_name).strip()) if professional else ''
         events.append({
             'id': c.id,
-            'title': (patient.first_name + ' ' + patient.last_name) if patient else 'Consulta',
+            'title': patient_name,
             'start': start_dt.isoformat(),
             'end': end_dt.isoformat(),
             'extendedProps': {
                 'status': c.status,
-                'consultorio': c.consultorio_fk.name if c.consultorio_fk else c.consultory,
+                'statusDisplay': c.get_status_display() if hasattr(c, 'get_status_display') else c.status,
+                'consultorio': consultorio_name,
+                'consultorioId': c.consultorio_fk_id if c.consultorio_fk_id else None,
                 'patientId': patient.id if patient else None,
+                'patientName': patient_name,
+                'professionalId': professional.id if professional else None,
+                'professionalName': professional_name,
                 'duration': c.duration,
+                'charge': c.charge,
+                'notes': c.notes or '',
             },
             'backgroundColor': color,
             'borderColor': color,
@@ -1092,3 +1103,61 @@ def consultation_time_update_api(request, consultation_id):
     cons.duration = new_duration
     cons.save(update_fields=['date','time','duration'])
     return JsonResponse({'ok': True, 'message': 'Actualizado', 'id': cons.id, 'date': str(cons.date), 'time': cons.time.strftime('%H:%M'), 'duration': cons.duration})
+
+@login_required
+def consultation_cancel_api(request, consultation_id):
+    """Cancel a consultation or reschedule it to another date/time.
+    POST params:
+      - mode: 'cancel' (default) or 'reschedule'
+      - date (YYYY-MM-DD) and time (HH:MM) when mode == 'reschedule'
+    """
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'message': 'Método no permitido'}, status=405)
+    cons = Consultation.objects.select_related('professional','consultorio_fk','patient').filter(id=consultation_id).first()
+    if not cons:
+        return JsonResponse({'ok': False, 'message': 'Consulta no encontrada'}, status=404)
+    if not (request.user.is_staff or (cons.professional and cons.professional.user_id == request.user.id)):
+        return JsonResponse({'ok': False, 'message': 'Sin permiso'}, status=403)
+
+    mode = (request.POST.get('mode') or 'cancel').strip()
+    if mode == 'cancel':
+        cons.status = 'cancelled'
+        cons.save(update_fields=['status'])
+        return JsonResponse({'ok': True, 'message': 'Consulta cancelada'})
+    elif mode == 'reschedule':
+        date_str = request.POST.get('date')
+        time_str = request.POST.get('time')
+        if not date_str or not time_str:
+            return JsonResponse({'ok': False, 'message': 'Fecha y hora requeridas'}, status=400)
+        try:
+            new_date = dt.strptime(date_str, '%Y-%m-%d').date()
+            hh, mm = [int(x) for x in time_str.split(':')]
+            new_time = dtime(hh, mm)
+        except Exception:
+            return JsonResponse({'ok': False, 'message': 'Formato de fecha/hora inválido'}, status=400)
+        # Validate not in the past (allow a few minutes tolerance)
+        new_start_dt = dt.combine(new_date, new_time)
+        if new_start_dt < timezone.now() - timedelta(minutes=5):
+            return JsonResponse({'ok': False, 'message': 'No se puede reprogramar al pasado'}, status=400)
+        new_end_dt = new_start_dt + timedelta(minutes=cons.duration or 60)
+        # Conflict detection in same consultorio
+        base_qs = Consultation.objects.filter(date=new_date)
+        if cons.consultorio_fk:
+            base_qs = base_qs.filter(consultorio_fk=cons.consultorio_fk) | base_qs.filter(consultory=cons.consultorio_fk.name)
+        elif cons.consultory:
+            base_qs = base_qs.filter(consultory=cons.consultory)
+        conflict = False
+        for other in base_qs.exclude(id=cons.id):
+            o_start = dt.combine(other.date, other.time)
+            o_end = o_start + timedelta(minutes=other.duration or 60)
+            if new_start_dt < o_end and o_start < new_end_dt:
+                conflict = True
+                break
+        if conflict:
+            return JsonResponse({'ok': False, 'message': 'Conflicto con otra consulta'}, status=409)
+        cons.date = new_date
+        cons.time = new_time
+        cons.save(update_fields=['date','time'])
+        return JsonResponse({'ok': True, 'message': 'Consulta reprogramada', 'date': str(cons.date), 'time': cons.time.strftime('%H:%M')})
+    else:
+        return JsonResponse({'ok': False, 'message': 'Modo inválido'}, status=400)

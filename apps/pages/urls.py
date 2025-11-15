@@ -34,6 +34,7 @@ urlpatterns = [
     path('config/consultorios/', views.config_consultorios, name='config_consultorios'),
     path('config/consultorios/calendario/', views.consultorios_calendar, name='consultorios_calendar'),
     path('consult/delete/<int:consultation_id>/', views.consultation_delete_api, name='consultation_delete_api'),
+    path('consult/cancel/<int:consultation_id>/', views.consultation_cancel_api, name='consultation_cancel_api'),
     path('patient/<int:patient_id>/color/', views.patient_color_update_api, name='patient_color_update_api'),
     path('consult/list/', views.consult_table, name='consult_table'),
     path('api/calendar/events/', views.calendar_events_api, name='calendar_events_api'),
