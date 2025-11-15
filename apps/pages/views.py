@@ -1093,9 +1093,9 @@ def consultation_time_update_api(request, consultation_id):
         return JsonResponse({'ok': False, 'message': 'Formato de fecha inválido'}, status=400)
     if new_end <= new_start:
         return JsonResponse({'ok': False, 'message': 'Fin debe ser posterior al inicio'}, status=400)
-    # Prevent moving into the past (optional rule)
-    if new_start < timezone.now() - timedelta(minutes=5):
-        return JsonResponse({'ok': False, 'message': 'No se puede mover a tiempo pasado'}, status=400)
+    # Prevent reprogramming to days before today (date-only check)
+    if new_start.date() < ddate.today():
+        return JsonResponse({'ok': False, 'message': 'No se puede reprogramar a días anteriores a hoy'}, status=400)
     new_date = new_start.date()
     new_time = new_start.time().replace(second=0, microsecond=0)
     new_duration = int((new_end - new_start).total_seconds() // 60)
@@ -1119,8 +1119,9 @@ def consultation_time_update_api(request, consultation_id):
     cons.date = new_date
     cons.time = new_time
     cons.duration = new_duration
-    cons.save(update_fields=['date','time','duration'])
-    return JsonResponse({'ok': True, 'message': 'Actualizado', 'id': cons.id, 'date': str(cons.date), 'time': cons.time.strftime('%H:%M'), 'duration': cons.duration})
+    cons.status = 'pending'
+    cons.save(update_fields=['date','time','duration','status'])
+    return JsonResponse({'ok': True, 'message': 'Actualizado', 'id': cons.id, 'date': str(cons.date), 'time': cons.time.strftime('%H:%M'), 'duration': cons.duration, 'status': cons.status})
 
 @login_required
 def consultation_cancel_api(request, consultation_id):
@@ -1153,14 +1154,13 @@ def consultation_cancel_api(request, consultation_id):
             new_time = dtime(hh, mm)
         except Exception:
             return JsonResponse({'ok': False, 'message': 'Formato de fecha/hora inválido'}, status=400)
-        # Validate not in the past (allow a few minutes tolerance)
+        # Validate date not before today (date-only rule)
+        if new_date < ddate.today():
+            return JsonResponse({'ok': False, 'message': 'No se puede reprogramar a días anteriores a hoy'}, status=400)
         new_start_dt = dt.combine(new_date, new_time)
         tz = timezone.get_current_timezone()
         if timezone.is_naive(new_start_dt):
             new_start_dt = timezone.make_aware(new_start_dt, tz)
-        now_aw = timezone.now()
-        if new_start_dt < now_aw - timedelta(minutes=5):
-            return JsonResponse({'ok': False, 'message': 'No se puede reprogramar al pasado'}, status=400)
         new_end_dt = new_start_dt + timedelta(minutes=cons.duration or 60)
         # Conflict detection in same consultorio
         base_qs = Consultation.objects.filter(date=new_date)
@@ -1181,7 +1181,8 @@ def consultation_cancel_api(request, consultation_id):
             return JsonResponse({'ok': False, 'message': 'Conflicto con otra consulta'}, status=409)
         cons.date = new_date
         cons.time = new_time
-        cons.save(update_fields=['date','time'])
-        return JsonResponse({'ok': True, 'message': 'Consulta reprogramada', 'date': str(cons.date), 'time': cons.time.strftime('%H:%M')})
+        cons.status = 'pending'
+        cons.save(update_fields=['date','time','status'])
+        return JsonResponse({'ok': True, 'message': 'Consulta reprogramada', 'date': str(cons.date), 'time': cons.time.strftime('%H:%M'), 'status': cons.status})
     else:
         return JsonResponse({'ok': False, 'message': 'Modo inválido'}, status=400)
