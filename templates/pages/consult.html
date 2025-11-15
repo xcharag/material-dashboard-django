@@ -37,7 +37,7 @@
                   <select name="consultory" id="consultory" class="form-control" required>
                     <option value="">Seleccionar consultorio</option>
                     {% for c in consultorios %}
-                      {% if c.is_active %}<option value="{{ c.name }}">{{ c.name }}{% if c.address %} - {{ c.address }}{% endif %}</option>{% endif %}
+                      {% if c.is_active %}<option value="{{ c.id }}">{{ c.name }}{% if c.address %} - {{ c.address }}{% endif %}</option>{% endif %}
                     {% endfor %}
                   </select>
                 </div>
@@ -138,7 +138,7 @@
               <select name="consultory" class="form-select">
                 <option value="">Consultorio</option>
                 {% for c in consultorios %}
-                  <option value="{{ c.name }}" {% if request.GET.consultory == c.name %}selected{% endif %}>{{ c.name }}</option>
+                  <option value="{{ c.id }}" {% if request.GET.consultory == c.id|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>
                 {% endfor %}
               </select>
             </div>

@@ -32,5 +32,6 @@ urlpatterns = [
     path('mis-pacientes/', views.my_patients, name='my_patients'),
     path('mis-pacientes/<int:patient_id>/', views.patient_history, name='patient_history'),
     path('config/consultorios/', views.config_consultorios, name='config_consultorios'),
+    path('config/consultorios/calendario/', views.consultorios_calendar, name='consultorios_calendar'),
     path('consult/list/', views.consult_table, name='consult_table'),
 ]

@@ -359,7 +359,7 @@ def consult(request):
     if request.method == 'POST':
         # Process form data
         patient_id = request.POST.get('patient')
-        consultory = request.POST.get('consultory')
+        consultory_id = request.POST.get('consultory')
         date = request.POST.get('date')
         time = request.POST.get('time')
         duration = request.POST.get('duration')
@@ -381,8 +381,18 @@ def consult(request):
             messages.error(request, 'La fecha no puede ser anterior a hoy.')
             return redirect('consult')
 
-        # Validation: prevent double booking same consultory/date/time
-        if Consultation.objects.filter(date=date_obj, time=time, consultory=consultory).exists():
+        # Resolve consultorio
+        consultorio_obj = None
+        if consultory_id:
+            consultorio_obj = Consultorio.objects.filter(id=consultory_id).first()
+            if not consultorio_obj:
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({'ok': False, 'message': 'Consultorio no válido.'}, status=400)
+                messages.error(request, 'Consultorio no válido.')
+                return redirect('consult')
+
+        # Validation: prevent double booking same consultorio/date/time
+        if consultorio_obj and Consultation.objects.filter(date=date_obj, time=time, consultorio_fk=consultorio_obj).exists():
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'ok': False, 'message': 'Ya existe una consulta en ese consultorio para la misma fecha y hora.'}, status=400)
             messages.error(request, 'Ya existe una consulta en ese consultorio para la misma fecha y hora.')
@@ -392,7 +402,8 @@ def consult(request):
         Consultation.objects.create(
             patient=patient,
             professional=professional,
-            consultory=consultory,
+            consultory=(consultorio_obj.name if consultorio_obj else ''),
+            consultorio_fk=consultorio_obj,
             date=date_obj,
             time=time,
             duration=duration,
@@ -780,7 +791,10 @@ def consult_table(request):
     if patient_filter:
         qs = qs.filter(patient_id=patient_filter)
     if consultory_filter:
-        qs = qs.filter(consultory=consultory_filter)
+        if str(consultory_filter).isdigit():
+            qs = qs.filter(consultorio_fk_id=int(consultory_filter))
+        else:
+            qs = qs.filter(consultory=consultory_filter)
     if date_filter:
         qs = qs.filter(date=date_filter)
     if status_filter:
@@ -790,3 +804,78 @@ def consult_table(request):
     return render(request, 'pages/_consult_table.html', {
         'consultations': consultations,
     })
+
+
+@login_required
+@staff_required
+def consultorios_calendar(request):
+    # Params
+    date_str = request.GET.get('date')
+    try:
+        target_date = dt.strptime(date_str, '%Y-%m-%d').date() if date_str else ddate.today()
+    except Exception:
+        target_date = ddate.today()
+
+    consultorio_id = request.GET.get('consultorio')
+    if consultorio_id and str(consultorio_id).isdigit():
+        consultorios = list(Consultorio.objects.filter(id=int(consultorio_id)))
+    else:
+        consultorios = list(Consultorio.objects.filter(is_active=True))
+
+    # Time grid setup (07:00 to 21:00 in 30 min steps)
+    from datetime import time as dtime
+    start_time = dtime(7, 0)
+    end_time = dtime(21, 0)
+    step_minutes = 30
+    total_slots = int(((end_time.hour*60 + end_time.minute) - (start_time.hour*60 + start_time.minute)) / step_minutes)
+    times = []
+    sh = start_time.hour; sm = start_time.minute
+    for i in range(total_slots):
+        minutes = sh*60 + sm + i*step_minutes
+        h = minutes // 60; m = minutes % 60
+        times.append(f"{h:02d}:{m:02d}")
+
+    # Build grid per consultorio
+    columns_rows = {}
+    for c in consultorios:
+        rows = [None] * total_slots
+        qs = Consultation.objects.filter(date=target_date).filter(consultorio_fk=c)
+        if not qs.exists():
+            qs = Consultation.objects.filter(date=target_date, consultory=c.name)
+        for cons in qs.order_by('time'):
+            idx = int(((cons.time.hour*60 + cons.time.minute) - (start_time.hour*60 + start_time.minute)) / step_minutes)
+            if idx < 0:
+                continue
+            # ceil division for span
+            span = (cons.duration or 60)
+            span = int((span + step_minutes - 1) / step_minutes)
+            span = min(span, max(0, total_slots - idx))
+            if idx >= total_slots:
+                continue
+            if rows[idx] is None:
+                rows[idx] = {'type': 'start', 'consult': cons, 'rowspan': span}
+                for k in range(1, span):
+                    if idx + k < total_slots:
+                        rows[idx + k] = {'type': 'skip'}
+        columns_rows[c.id] = rows
+
+    cal_rows = []
+    for i, t in enumerate(times):
+        cells = []
+        for c in consultorios:
+            cell = columns_rows[c.id][i]
+            if cell is None:
+                cells.append({'type': 'empty'})
+            else:
+                cells.append(cell)
+        cal_rows.append({'time': t, 'cells': cells})
+
+    context = {
+        'segment': 'consultorios_calendar',
+        'consultorios': consultorios,
+        'times': times,
+        'cal_rows': cal_rows,
+        'target_date': target_date,
+        'selected_consultorio_id': int(consultorio_id) if consultorio_id and str(consultorio_id).isdigit() else '',
+    }
+    return render(request, 'pages/consultorios_calendar.html', context)

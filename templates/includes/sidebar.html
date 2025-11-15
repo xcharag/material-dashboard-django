@@ -139,6 +139,12 @@
             <span class="nav-link-text ms-1">Consultorios</span>
           </a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link {% if 'consultorios_calendar' == segment %} active bg-gradient-dark text-white {% else %} text-dark {% endif %}" href="{% url 'consultorios_calendar' %}">
+            <i class="material-symbols-rounded opacity-5">calendar_month</i>
+            <span class="nav-link-text ms-1">Calendario Consultorios</span>
+          </a>
+        </li>
         {% endif %}
         {% if request.user.is_authenticated %}
         <li class="nav-item">

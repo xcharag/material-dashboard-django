@@ -21,7 +21,7 @@
           </div>
         </td>
         <td>
-          <p class="text-xs font-weight-bold mb-0">{{ consult.consultory }}</p>
+          <p class="text-xs font-weight-bold mb-0">{{ consult.consultorio_fk.name|default:consult.consultory }}</p>
         </td>
         <td class="align-middle text-center text-sm">
           <p class="text-xs font-weight-bold mb-0">{{ consult.date|date:"d/m/Y" }} {{ consult.time }}</p>

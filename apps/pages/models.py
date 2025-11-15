@@ -73,6 +73,7 @@ class Consultation(models.Model):
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='consultations')
     professional = models.ForeignKey(Professional, on_delete=models.CASCADE, related_name='consultations')
     consultory = models.CharField(max_length=20)
+    consultorio_fk = models.ForeignKey('Consultorio', on_delete=models.SET_NULL, null=True, blank=True, related_name='consultations')
     date = models.DateField()
     time = models.TimeField()
     duration = models.IntegerField(default=60)  # in minutes

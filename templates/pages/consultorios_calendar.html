@@ -1,0 +1,78 @@
+{% extends "layouts/base.html" %}
+{% block title %} Calendario Consultorios {% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="row">
+    <div class="col-12">
+      <div class="card my-4">
+        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
+          <div class="bg-gradient-success shadow-success border-radius-lg pt-4 pb-3 d-flex justify-content-between align-items-center">
+            <h6 class="text-white text-capitalize ps-3 mb-0">Calendario por Consultorio</h6>
+          </div>
+        </div>
+        <div class="card-body px-4 pb-2">
+          <form method="get" class="row g-2 mb-4">
+            <div class="col-md-3">
+              <div class="input-group input-group-static">
+                <label>Fecha</label>
+                <input type="date" class="form-control" name="date" value="{{ target_date|date:'Y-m-d' }}" />
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="input-group input-group-static">
+                <label>Consultorio</label>
+                <select class="form-select" name="consultorio">
+                  <option value="">Todos</option>
+                  {% for c in consultorios %}
+                    <option value="{{ c.id }}" {% if selected_consultorio_id == c.id %}selected{% endif %}>{{ c.name }}{% if c.address %} - {{ c.address }}{% endif %}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+              <button class="btn btn-success w-100">Aplicar</button>
+            </div>
+          </form>
+
+          <div class="table-responsive">
+            <table class="table table-bordered align-items-center mb-0">
+              <thead>
+                <tr>
+                  <th style="width:100px">Hora</th>
+                  {% for c in consultorios %}
+                  <th>{{ c.name }}</th>
+                  {% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in cal_rows %}
+                <tr>
+                  <td class="text-xs text-secondary">{{ row.time }}</td>
+                  {% for cell in row.cells %}
+                    {% if cell.type == 'skip' %}
+                      
+                    {% elif cell.type == 'start' %}
+                      <td rowspan="{{ cell.rowspan }}">
+                        <div class="p-2 bg-light border rounded">
+                          <div class="text-xs fw-bold">{{ cell.consult.patient.first_name }} {{ cell.consult.patient.last_name }}</div>
+                          <div class="text-xxs text-secondary">{{ cell.consult.time }} · {{ cell.consult.duration }}m</div>
+                        </div>
+                      </td>
+                    {% else %}
+                      <td></td>
+                    {% endif %}
+                  {% endfor %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}{% endblock extra_js %}
