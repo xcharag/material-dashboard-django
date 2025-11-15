@@ -1,0 +1,91 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+{% block title %} Historial Detallado: {{ patient.first_name }} {{ patient.last_name }} {% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="row">
+    <div class="col-12">
+      <div class="card my-4">
+        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
+          <div class="bg-gradient-success shadow-success border-radius-lg pt-4 pb-3 d-flex justify-content-between align-items-center">
+            <h6 class="text-white text-capitalize ps-3 mb-0">Historial Detallado de {{ patient.first_name }} {{ patient.last_name }}</h6>
+            <div class="me-3">
+              <a href="{% url 'my_patients' %}" class="btn btn-sm btn-outline-light">Volver</a>
+              <a href="{% url 'report_sessions' %}?patient={{ patient.id }}" class="btn btn-sm btn-light">Reporte Sesiones</a>
+            </div>
+          </div>
+        </div>
+        <div class="card-body px-4 pb-4">
+          <h6 class="mb-3">Consultas Atendidas</h6>
+          <div class="table-responsive mb-4">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Hora</th>
+                  <th>Estado</th>
+                  <th>Duración</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for c in consultations %}
+                <tr>
+                  <td>{{ c.date|date:'d/m/Y' }}</td>
+                  <td>{{ c.time }}</td>
+                  <td><span class="badge bg-gradient-{% if c.status == 'pending' %}warning{% elif c.status == 'attended' %}info{% elif c.status == 'completed' %}secondary{% else %}danger{% endif %}">{{ c.get_status_display }}</span></td>
+                  <td>{{ c.duration }} min</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-secondary">Sin consultas</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-lg-6">
+              <div class="border rounded p-3 h-100">
+                <h6 class="mb-3">Notas</h6>
+                {% if notes %}
+                  <ul class="list-group">
+                  {% for n in notes %}
+                    <li class="list-group-item small">
+                      <div class="d-flex justify-content-between"><strong>{{ n.title|default:'(Sin título)' }}</strong><span class="text-secondary">{{ n.created_at|date:'d/m/Y H:i' }}</span></div>
+                      <div class="text-secondary">Consulta: {{ n.consultation.date|date:'d/m/Y' }} {{ n.consultation.time }}</div>
+                      <div style="white-space:pre-wrap;" class="mt-1">{{ n.content }}</div>
+                    </li>
+                  {% endfor %}
+                  </ul>
+                {% else %}
+                  <p class="text-secondary">Sin notas</p>
+                {% endif %}
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="border rounded p-3 h-100">
+                <h6 class="mb-3">Adjuntos</h6>
+                {% if attachments %}
+                  <ul class="list-group">
+                  {% for a in attachments %}
+                    <li class="list-group-item small d-flex justify-content-between align-items-center">
+                      <div>
+                        <strong>{{ a.get_file_type_display }}</strong>
+                        <span class="text-secondary">{{ a.display_name|default:a.file.name }}</span>
+                        <div class="text-secondary">Consulta: {{ a.consultation.date|date:'d/m/Y' }} {{ a.consultation.time }}</div>
+                      </div>
+                      <a href="{{ a.file.url }}" class="btn btn-sm btn-outline-primary" target="_blank">Ver</a>
+                    </li>
+                  {% endfor %}
+                  </ul>
+                {% else %}
+                  <p class="text-secondary">Sin adjuntos</p>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

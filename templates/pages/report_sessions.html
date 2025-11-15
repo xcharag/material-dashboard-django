@@ -1,0 +1,120 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+{% block title %} Reporte Sesiones (Asistente IA) {% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="row">
+    <div class="col-12">
+      <div class="card my-4">
+        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
+          <div class="bg-gradient-success shadow-success border-radius-lg pt-4 pb-3 d-flex justify-content-between align-items-center">
+            <h6 class="text-white text-capitalize ps-3 mb-0">Reporte Sesiones - Asistente IA</h6>
+            <a href="{% url 'my_patients' %}" class="btn btn-sm btn-outline-light me-3">Mis Pacientes</a>
+          </div>
+        </div>
+        <div class="card-body px-4 pb-4">
+          {% if error %}
+          <div class="alert alert-danger">{{ error }}</div>
+          {% endif %}
+          <form method="post" class="row g-2 align-items-end mb-4">
+            {% csrf_token %}
+            <div class="col-md-4">
+              <label class="form-label">Paciente</label>
+              <select name="patient" class="form-select" required>
+                <option value="">Selecciona un paciente</option>
+                {% for p in patients %}
+                  <option value="{{ p.id }}" {% if selected_patient and selected_patient.id == p.id %}selected{% endif %}>{{ p.first_name }} {{ p.last_name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <button class="btn btn-success w-100">Generar/Actualizar Resumen</button>
+            </div>
+          </form>
+
+          {% if selected_patient %}
+            <div class="row g-3">
+              <div class="col-lg-5">
+                <div class="border rounded p-3 h-100">
+                  <h6 class="mb-3">Resumen IA</h6>
+                  {% if messages %}
+                    {% for m in messages %}
+                      {% if m.role == 'assistant' %}
+                        <div class="mb-3 p-2 bg-light rounded small" style="white-space:pre-wrap;">{{ m.content }}</div>
+                      {% endif %}
+                    {% endfor %}
+                  {% elif generated %}
+                    <div class="mb-3 p-2 bg-light rounded small" style="white-space:pre-wrap;">{{ generated }}</div>
+                  {% else %}
+                    <p class="text-secondary small">Genera el resumen para iniciar.</p>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="col-lg-7">
+                <div class="border rounded p-3 h-100 d-flex flex-column">
+                  <h6 class="mb-3">Chat con Asistente</h6>
+                  <div id="chatBox" class="flex-grow-1 overflow-auto border rounded p-2 mb-2" style="max-height:400px;">
+                    {% if messages %}
+                      {% for m in messages %}
+                        {% if m.role != 'system' %}
+                          <div class="mb-2">
+                            <strong class="text-{% if m.role == 'user' %}primary{% else %}success{% endif %}">{{ m.role|capfirst }}:</strong>
+                            <div class="small" style="white-space:pre-wrap;">{{ m.content }}</div>
+                          </div>
+                        {% endif %}
+                      {% endfor %}
+                    {% else %}
+                      <p class="text-secondary small">Aún no hay conversación. Envía una pregunta sobre este paciente.</p>
+                    {% endif %}
+                  </div>
+                  <form id="chatForm" class="d-flex" onsubmit="return sendChat(event);">
+                    <input type="hidden" name="thread_id" value="{% if thread %}{{ thread.id }}{% endif %}" />
+                    <input type="text" name="message" class="form-control me-2" placeholder="Escribe tu pregunta..." {% if not thread %}disabled{% endif %}>
+                    <button class="btn btn-success" {% if not thread %}disabled{% endif %}>Enviar</button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+  async function sendChat(e){
+    e.preventDefault();
+    const form = document.getElementById('chatForm');
+    const data = new FormData(form);
+    const box = document.getElementById('chatBox');
+    const msg = data.get('message');
+    if(!msg) return false;
+    // Append user msg
+    const u = document.createElement('div');
+    u.className = 'mb-2';
+    u.innerHTML = '<strong class="text-primary">Usuario:</strong> <div class="small" style="white-space:pre-wrap;"></div>';
+    u.querySelector('div').textContent = msg;
+    box.appendChild(u);
+    form.message.value = '';
+    try{
+      const res = await fetch('{% url "report_sessions_chat" %}', {method:'POST', credentials:'same-origin', headers:{'X-CSRFToken': getCookie('csrftoken')}, body: data});
+      const json = await res.json();
+      if(json.ok){
+        const a = document.createElement('div');
+        a.className = 'mb-2';
+        a.innerHTML = '<strong class="text-success">Asistente:</strong> <div class="small" style="white-space:pre-wrap;"></div>';
+        a.querySelector('div').textContent = json.answer || '';
+        box.appendChild(a);
+        box.scrollTop = box.scrollHeight;
+      }else{
+        alert(json.error || 'Error');
+      }
+    }catch(err){ alert('Error IA'); }
+    return false;
+  }
+  function getCookie(name){const v = `; ${document.cookie}`.split(`; ${name}=`); if(v.length===2) return v.pop().split(';').shift();}
+</script>
+{% endblock extra_js %}

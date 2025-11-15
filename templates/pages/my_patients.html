@@ -46,6 +46,7 @@
                   </td>
                   <td class="align-middle">
                     <a href="{% url 'patient_history' row.patient.id %}" class="btn btn-sm bg-gradient-info">Ver Historial</a>
+                    <a href="{% url 'patient_history_manager' row.patient.id %}" class="btn btn-sm btn-outline-info">Historial Detallado</a>
                     <a href="{% url 'edit_patient' row.patient.id %}" class="btn btn-sm btn-outline-secondary">Editar</a>
                   </td>
                 </tr>

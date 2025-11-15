@@ -225,3 +225,39 @@ class ProfessionalMedia(models.Model):
 
     def __str__(self):
         return f"Media #{self.id} for {self.professional}"
+
+
+# --- AI assistant models ---
+class PatientAIThread(models.Model):
+    professional = models.ForeignKey(Professional, on_delete=models.CASCADE, related_name='ai_threads')
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='ai_threads')
+    title = models.CharField(max_length=255, blank=True, default='')
+    context = models.TextField(blank=True, default='')  # Aggregated clinical context used as system/basis context
+    model = models.CharField(max_length=100, blank=True, default='gpt-4o-mini')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('professional', 'patient')
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"AI Thread {self.id} - {self.patient}"
+
+
+class PatientAIMessage(models.Model):
+    ROLE_CHOICES = [
+        ('system', 'system'),
+        ('user', 'user'),
+        ('assistant', 'assistant'),
+    ]
+    thread = models.ForeignKey(PatientAIThread, on_delete=models.CASCADE, related_name='messages')
+    role = models.CharField(max_length=16, choices=ROLE_CHOICES)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.role} msg #{self.id} on thread {self.thread_id}"

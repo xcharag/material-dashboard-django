@@ -6,6 +6,7 @@ from django.contrib.auth import views as auth_views
 from django.db import IntegrityError
 from django.db.models import Sum
 from .models import Patient, Professional, Consultation, ConsultationNote, ConsultationAttachment, Consultorio
+from .models import PatientAIThread, PatientAIMessage
 from django.contrib import messages
 from .forms import CustomLoginForm, UsernameRecoveryForm
 from .forms import ProfessionalProfileForm, ProfessionalContactForm
@@ -15,6 +16,8 @@ from datetime import datetime as dt, date as ddate
 from .utils.availability import generate_slots
 from datetime import time as dtime
 from django.utils import timezone
+import os
+from openai import OpenAI
 
 # Create your views here.
 
@@ -1186,3 +1189,186 @@ def consultation_cancel_api(request, consultation_id):
         return JsonResponse({'ok': True, 'message': 'Consulta reprogramada', 'date': str(cons.date), 'time': cons.time.strftime('%H:%M'), 'status': cons.status})
     else:
         return JsonResponse({'ok': False, 'message': 'Modo inválido'}, status=400)
+
+
+def _get_professional(user):
+    return Professional.objects.filter(user=user).first()
+
+
+def _build_patient_context(professional: Professional, patient: Patient) -> str:
+    cons_qs = Consultation.objects.filter(professional=professional, patient=patient).order_by('date', 'time')
+    note_qs = ConsultationNote.objects.filter(consultation__in=cons_qs).select_related('consultation')
+    att_qs = ConsultationAttachment.objects.filter(consultation__in=cons_qs).select_related('consultation')
+    parts = []
+    parts.append(f"Paciente: {patient.first_name} {patient.last_name}\n")
+    parts.append(f"Total de consultas: {cons_qs.count()}\n")
+    for c in cons_qs:
+        parts.append(f"- Consulta: {c.date} {c.time}, estado={c.get_status_display()}, duración={c.duration} min\n")
+        notes = [n for n in note_qs if n.consultation_id == c.id]
+        if notes:
+            parts.append("  Notas:\n")
+            for n in notes:
+                title = (n.title or '').strip()
+                tshow = f"{title}: " if title else ''
+                parts.append(f"   • {tshow}{(n.content or '').strip()[:500]}\n")
+        atts = [a for a in att_qs if a.consultation_id == c.id]
+        if atts:
+            parts.append("  Adjuntos:\n")
+            for a in atts:
+                parts.append(f"   • {a.get_file_type_display()} - {a.display_name or a.file.name}\n")
+    return ''.join(parts)
+
+
+def _openai_client():
+    api_key = os.environ.get('OPENAI_API_KEY')
+    if not api_key:
+        return None
+    try:
+        return OpenAI(api_key=api_key)
+    except Exception:
+        return None
+
+
+def _ai_summary_prompt(context: str) -> list:
+    system = (
+        "Eres un asistente clínico para profesionales de salud mental. "
+        "Usa el contexto del paciente provisto para: "
+        "1) Resumen detallado de la historia clínica (en viñetas si ayuda). "
+        "2) Resumen breve en viñetas de la última sesión y dónde quedó. "
+        "3) Recomendaciones prácticas y cautelas para el profesional en la próxima sesión. "
+        "Responde en español, claro y estructurado. Si falta información, decláralo."
+    )
+    user = (
+        "Contexto del paciente (consultas, notas, adjuntos):\n\n" + context + "\n\n" +
+        "Genera: (A) Historia, (B) Última sesión, (C) Recomendaciones."
+    )
+    return [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+
+
+@login_required
+def report_sessions(request):
+    # Professionals only (or staff)
+    prof = _get_professional(request.user)
+    if not (request.user.is_staff or prof):
+        messages.error(request, 'No autorizado.')
+        return redirect('index')
+
+    patient_id = request.GET.get('patient') or request.POST.get('patient')
+    selected_patient = Patient.objects.filter(id=patient_id).first() if patient_id else None
+    thread = None
+    generated = None
+    error = None
+
+    if request.method == 'POST' and selected_patient:
+        # Resolve professional for thread: current professional or patient's assigned professional (for staff)
+        thread_prof = prof or selected_patient.professional
+        if not thread_prof:
+            error = 'El paciente no está asignado a un profesional. Asígnalo primero para generar el reporte.'
+        else:
+            # Create or reuse thread and generate initial summary
+            thread, _ = PatientAIThread.objects.get_or_create(
+                professional=thread_prof,
+                patient=selected_patient,
+            )
+            # Build context
+            context_text = _build_patient_context(thread_prof, selected_patient)
+            thread.context = context_text
+            thread.save(update_fields=['context', 'updated_at'])
+
+            client = _openai_client()
+            if not client:
+                error = 'Configura OPENAI_API_KEY para generar el resumen.'
+            else:
+                try:
+                    msgs = _ai_summary_prompt(context_text)
+                    resp = client.chat.completions.create(
+                        model=thread.model or 'gpt-4o-mini',
+                        messages=msgs,
+                        temperature=0.2,
+                    )
+                    content = resp.choices[0].message.content if resp and resp.choices else ''
+                    PatientAIMessage.objects.create(thread=thread, role='system', content=context_text)
+                    PatientAIMessage.objects.create(thread=thread, role='assistant', content=content or '')
+                    generated = content
+                except Exception as e:
+                    error = f'Error al invocar OpenAI: {e}'
+
+    patients = Patient.objects.filter(professional=prof) if prof else Patient.objects.all()
+    # Load thread and last messages if exists (respect staff fallback to patient's professional)
+    if selected_patient and not thread:
+        view_prof = prof or selected_patient.professional
+        if view_prof:
+            thread = PatientAIThread.objects.filter(professional=view_prof, patient=selected_patient).first()
+    messages_qs = thread.messages.all() if thread else []
+
+    return render(request, 'pages/report_sessions.html', {
+        'segment': 'report_sessions',
+        'patients': patients,
+        'selected_patient': selected_patient,
+        'thread': thread,
+        'messages': messages_qs,
+        'generated': generated,
+        'error': error,
+    })
+
+
+@login_required
+def report_sessions_chat(request):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'Método no permitido'}, status=405)
+    prof = _get_professional(request.user)
+    thread_id = request.POST.get('thread_id')
+    question = (request.POST.get('message') or '').strip()
+    if not thread_id or not question:
+        return JsonResponse({'ok': False, 'error': 'Faltan parámetros'}, status=400)
+    thread = PatientAIThread.objects.select_related('professional', 'patient').filter(id=thread_id).first()
+    if not thread:
+        return JsonResponse({'ok': False, 'error': 'Hilo no encontrado'}, status=404)
+    if not (request.user.is_staff or (prof and prof.id == thread.professional_id)):
+        return JsonResponse({'ok': False, 'error': 'No autorizado'}, status=403)
+
+    client = _openai_client()
+    if not client:
+        return JsonResponse({'ok': False, 'error': 'Falta OPENAI_API_KEY'}, status=400)
+
+    # Build messages: include system with thread.context, plus recent history, then the user question
+    history = list(thread.messages.order_by('-created_at')[:10])
+    history.reverse()
+    msgs = [{"role": "system", "content": (
+        "Eres un asistente que solo responde sobre el paciente seleccionado. "
+        "Usa exclusivamente este contexto clínico y la conversación previa.\n\n" + (thread.context or '')
+    )}]
+    for m in history:
+        msgs.append({"role": m.role, "content": m.content})
+    msgs.append({"role": "user", "content": question})
+
+    try:
+        PatientAIMessage.objects.create(thread=thread, role='user', content=question)
+        resp = client.chat.completions.create(model=thread.model or 'gpt-4o-mini', messages=msgs, temperature=0.2)
+        answer = resp.choices[0].message.content if resp and resp.choices else ''
+        PatientAIMessage.objects.create(thread=thread, role='assistant', content=answer or '')
+        return JsonResponse({'ok': True, 'answer': answer})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': f'Error IA: {e}'}, status=500)
+
+
+@login_required
+def patient_history_manager(request, patient_id):
+    prof = _get_professional(request.user)
+    patient = get_object_or_404(Patient, id=patient_id)
+    if not (request.user.is_staff or (prof and patient.professional_id == prof.id)):
+        messages.error(request, 'No autorizado')
+        return redirect('my_patients')
+    consultations = Consultation.objects.filter(patient=patient, professional=prof).filter(status__in=['attended', 'completed']).order_by('-date', '-time')
+    notes = ConsultationNote.objects.filter(consultation__in=consultations).select_related('consultation').order_by('-created_at')
+    atts = ConsultationAttachment.objects.filter(consultation__in=consultations).select_related('consultation').order_by('-uploaded_at')
+    return render(request, 'pages/patient_history_manager.html', {
+        'segment': 'patient_history_manager',
+        'patient': patient,
+        'consultations': consultations,
+        'notes': notes,
+        'attachments': atts,
+    })
