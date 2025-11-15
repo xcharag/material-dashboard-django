@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import views as auth_views
 from django.db import IntegrityError
+from django.db.models import Sum
 from .models import Patient, Professional, Consultation, ConsultationNote, ConsultationAttachment, Consultorio
 from django.contrib import messages
 from .forms import CustomLoginForm, UsernameRecoveryForm
@@ -298,10 +299,11 @@ def my_patients(request):
     patients_qs = patients_qs.order_by('first_name', 'last_name')
 
     # Precompute aggregates
+    from apps.finance.models import Payment
     data = []
     for p in patients_qs:
         consultations = Consultation.objects.filter(patient=p)
-        total_paid = sum([c.charge for c in consultations]) if consultations.exists() else 0
+        total_paid = Payment.objects.filter(request__consultation__in=consultations).aggregate(total=Sum('amount'))['total'] or 0
         data.append({
             'patient': p,
             'consult_count': consultations.count(),
@@ -325,8 +327,14 @@ def patient_history(request, patient_id):
             messages.error(request, 'No tienes permiso para ver este paciente.')
             return redirect('my_patients')
 
-    consultations = Consultation.objects.filter(patient=patient).order_by('-date','-time')
-    total_paid = sum([c.charge for c in consultations]) if consultations.exists() else 0
+    consultations = list(Consultation.objects.filter(patient=patient).order_by('-date','-time'))
+    from apps.finance.models import Payment
+    totals = Payment.objects.filter(request__consultation__in=consultations) \
+        .values('request__consultation_id').annotate(total=Sum('amount'))
+    by_consult = {row['request__consultation_id']: row['total'] for row in totals}
+    for c in consultations:
+        c.paid_amount = by_consult.get(c.id, 0)
+    total_paid = sum(by_consult.values()) if by_consult else 0
     attachments = ConsultationAttachment.objects.filter(consultation__in=consultations).order_by('-uploaded_at')
 
     return render(request, 'pages/patient_history.html', {
@@ -384,7 +392,7 @@ def consult(request):
         date = request.POST.get('date')
         time = request.POST.get('time')
         duration = request.POST.get('duration')
-        charge = request.POST.get('charge')
+        # charge handled in Finance module; defaulted in model
         notes = request.POST.get('notes')
 
         # If admin, they can specify the professional
@@ -428,7 +436,6 @@ def consult(request):
             date=date_obj,
             time=time,
             duration=duration,
-            charge=charge,
             notes=notes
         )
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -820,7 +827,18 @@ def consult_table(request):
         qs = qs.filter(date=date_filter)
     if status_filter:
         qs = qs.filter(status=status_filter)
-    consultations = qs.order_by('date', 'time')
+    consultations = list(qs.order_by('date', 'time'))
+    # Attach paid_amount from finance payments
+    try:
+        from apps.finance.models import Payment
+        totals = Payment.objects.filter(request__consultation__in=consultations) \
+            .values('request__consultation_id').annotate(total=Sum('amount'))
+        by_consult = {row['request__consultation_id']: row['total'] for row in totals}
+        for c in consultations:
+            c.paid_amount = by_consult.get(c.id, 0)
+    except Exception:
+        for c in consultations:
+            c.paid_amount = 0
 
     return render(request, 'pages/_consult_table.html', {
         'consultations': consultations,

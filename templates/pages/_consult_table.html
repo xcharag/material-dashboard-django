@@ -5,7 +5,7 @@
         <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Paciente</th>
         <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Consultorio</th>
         <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Fecha y Hora</th>
-        <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Costo</th>
+        <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Pagado</th>
         <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Estado</th>
         <th class="text-secondary opacity-7"></th>
       </tr>
@@ -27,7 +27,7 @@
           <p class="text-xs font-weight-bold mb-0">{{ consult.date|date:"d/m/Y" }} {{ consult.time }}</p>
         </td>
         <td class="align-middle text-center">
-          <span class="text-secondary text-xs font-weight-bold">${{ consult.charge }}</span>
+          <span class="text-secondary text-xs font-weight-bold">Bs {{ consult.paid_amount|default:'0.00' }}</span>
         </td>
         <td class="align-middle">
           <span class="badge bg-gradient-{% if consult.status == 'pending' %}warning{% elif consult.status == 'attended' %}info{% elif consult.status == 'completed' %}secondary{% else %}danger{% endif %}">{{ consult.get_status_display }}</span>

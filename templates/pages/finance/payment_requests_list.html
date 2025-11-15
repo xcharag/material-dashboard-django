@@ -1,0 +1,61 @@
+{% extends "layouts/base.html" %}
+{% block title %} Solicitudes de Pago {% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="row">
+    <div class="col-12">
+      <div class="card my-4">
+        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
+          <div class="bg-gradient-success shadow-success border-radius-lg pt-4 pb-3 d-flex justify-content-between align-items-center">
+            <h6 class="text-white text-capitalize ps-3 mb-0">Solicitudes de Pago</h6>
+            <form method="get" class="me-3">
+              <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">Todas</option>
+                <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pendiente</option>
+                <option value="partial" {% if status_filter == 'partial' %}selected{% endif %}>Parcial</option>
+                <option value="paid" {% if status_filter == 'paid' %}selected{% endif %}>Pagada</option>
+              </select>
+            </form>
+          </div>
+        </div>
+        <div class="card-body px-4 pb-3">
+          <div class="table-responsive">
+            <table class="table align-items-center mb-0">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Paciente</th>
+                  <th>Profesional</th>
+                  <th>Esperado</th>
+                  <th>Pagado</th>
+                  <th>Saldo</th>
+                  <th>Estado</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in requests %}
+                <tr>
+                  <td>{{ r.created_at|date:'d/m/Y' }}</td>
+                  <td>{{ r.consultation.patient.first_name }} {{ r.consultation.patient.last_name }}</td>
+                  <td>{{ r.consultation.professional.first_name }} {{ r.consultation.professional.last_name }}</td>
+                  <td>Bs {{ r.expected_amount|default:'-' }}</td>
+                  <td>Bs {{ r.amount_paid }}</td>
+                  <td>Bs {{ r.balance }}</td>
+                  <td>
+                    <span class="badge bg-gradient-{% if r.status == 'paid' %}success{% elif r.status == 'partial' %}warning{% else %}secondary{% endif %}">{{ r.status|capfirst }}</span>
+                  </td>
+                  <td><a href="{% url 'finance_request_detail' r.id %}" class="btn btn-sm btn-outline-primary">Ver</a></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" class="text-secondary">Sin registros</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

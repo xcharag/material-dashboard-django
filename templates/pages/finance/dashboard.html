@@ -1,0 +1,47 @@
+{% extends "layouts/base.html" %}
+{% block title %} Finanzas {% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="row">
+    <div class="col-12">
+      <div class="card my-4">
+        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
+          <div class="bg-gradient-success shadow-success border-radius-lg pt-4 pb-3">
+            <h6 class="text-white text-capitalize ps-3 mb-0">Finanzas</h6>
+          </div>
+        </div>
+        <div class="card-body px-4 pb-2">
+          <div class="row g-3 mb-3">
+            <div class="col-md-3">
+              <div class="border rounded p-3 text-center">
+                <div class="text-secondary text-xs">Pendientes</div>
+                <div class="h5 mb-0">{{ counts.pending }}</div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="border rounded p-3 text-center">
+                <div class="text-secondary text-xs">Parciales</div>
+                <div class="h5 mb-0">{{ counts.partial }}</div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="border rounded p-3 text-center">
+                <div class="text-secondary text-xs">Pagadas</div>
+                <div class="h5 mb-0">{{ counts.paid }}</div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="border rounded p-3 text-center">
+                <div class="text-secondary text-xs">Pagado 30 días</div>
+                <div class="h5 mb-0">Bs {{ total_30d }}</div>
+              </div>
+            </div>
+          </div>
+          <a href="{% url 'finance_requests' %}" class="btn btn-sm bg-gradient-info me-2">Solicitudes de Pago</a>
+          <a href="{% url 'finance_payments' %}" class="btn btn-sm btn-outline-secondary">Pagos</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

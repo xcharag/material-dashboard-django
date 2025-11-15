@@ -25,7 +25,7 @@
             </div>
             <div class="col-md-4">
               <p class="text-xs text-secondary mb-1">Total Pagado</p>
-              <h6 class="mb-0">${{ total_paid|floatformat:2 }}</h6>
+              <h6 class="mb-0">Bs {{ total_paid|floatformat:2 }}</h6>
             </div>
           </div>
           <hr>
@@ -38,7 +38,7 @@
                   <th>Hora</th>
                   <th>Consultorio</th>
                   <th>Estado</th>
-                  <th>Costo</th>
+                  <th>Pagado</th>
                   <th></th>
                 </tr>
               </thead>
@@ -49,7 +49,7 @@
                   <td>{{ c.time }}</td>
                   <td>{{ c.consultory }}</td>
                   <td><span class="badge bg-gradient-{% if c.status == 'pending' %}warning{% elif c.status == 'attended' %}info{% elif c.status == 'completed' %}secondary{% else %}danger{% endif %}">{{ c.get_status_display }}</span></td>
-                  <td>${{ c.charge }}</td>
+                  <td>Bs {{ c.paid_amount|default:'0.00' }}</td>
                   <td><a href="{% url 'start_session' c.id %}" class="btn btn-sm btn-outline-success">Abrir</a></td>
                 </tr>
                 {% empty %}

@@ -1,0 +1,100 @@
+{% extends "layouts/base.html" %}
+{% block title %} Solicitud de Pago {% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="row">
+    <div class="col-12">
+      <div class="card my-4">
+        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
+          <div class="bg-gradient-success shadow-success border-radius-lg pt-4 pb-3 d-flex justify-content-between align-items-center">
+            <h6 class="text-white text-capitalize ps-3 mb-0">Solicitud de Pago</h6>
+            <a href="{% url 'finance_requests' %}" class="btn btn-sm btn-outline-light me-3">Volver</a>
+          </div>
+        </div>
+        <div class="card-body px-4 pb-3">
+          <div class="row mb-3">
+            <div class="col-md-3">
+              <p class="text-xs text-secondary mb-1">Paciente</p>
+              <h6 class="mb-0">{{ pr.consultation.patient.first_name }} {{ pr.consultation.patient.last_name }}</h6>
+            </div>
+            <div class="col-md-3">
+              <p class="text-xs text-secondary mb-1">Profesional</p>
+              <h6 class="mb-0">{{ pr.consultation.professional.first_name }} {{ pr.consultation.professional.last_name }}</h6>
+            </div>
+            <div class="col-md-2">
+              <p class="text-xs text-secondary mb-1">Esperado</p>
+              <h6 class="mb-0">Bs {{ pr.expected_amount|default:'-' }}</h6>
+            </div>
+            <div class="col-md-2">
+              <p class="text-xs text-secondary mb-1">Pagado</p>
+              <h6 class="mb-0">Bs {{ pr.amount_paid }}</h6>
+            </div>
+            <div class="col-md-2">
+              <p class="text-xs text-secondary mb-1">Saldo</p>
+              <h6 class="mb-0">Bs {{ pr.balance }}</h6>
+            </div>
+          </div>
+          <hr>
+          <div class="row">
+            <div class="col-lg-6">
+              <h6 class="mb-3">Pagos</h6>
+              <div class="table-responsive">
+                <table class="table table-sm">
+                  <thead>
+                    <tr><th>Fecha</th><th>Método</th><th>Referencia</th><th class="text-end">Monto</th></tr>
+                  </thead>
+                  <tbody>
+                    {% for p in pr.payments.all %}
+                      <tr>
+                        <td>{{ p.paid_at|date:'d/m/Y H:i' }}</td>
+                        <td>{{ p.get_method_display }}</td>
+                        <td>{{ p.reference|default:'-' }}</td>
+                        <td class="text-end">Bs {{ p.amount }}</td>
+                      </tr>
+                    {% empty %}
+                      <tr><td colspan="4" class="text-secondary">Sin pagos</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <h6 class="mb-3">Registrar Pago</h6>
+              <form method="post" class="row g-2">
+                {% csrf_token %}
+                <div class="col-6">
+                  <div class="input-group input-group-static">
+                    <label>Monto (Bs)</label>
+                    {{ form.amount }}
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="input-group input-group-static">
+                    <label>Método</label>
+                    {{ form.method }}
+                  </div>
+                </div>
+                <div class="col-12">
+                  <div class="input-group input-group-static">
+                    <label>Referencia</label>
+                    {{ form.reference }}
+                  </div>
+                </div>
+                <div class="col-12">
+                  <div class="input-group input-group-static">
+                    <label>Notas</label>
+                    {{ form.notes }}
+                  </div>
+                </div>
+                <div class="col-12">
+                  <button class="btn bg-gradient-success">Guardar Pago</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

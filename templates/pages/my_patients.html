@@ -42,7 +42,7 @@
                     <span class="text-xs font-weight-bold">{{ row.consult_count }}</span>
                   </td>
                   <td>
-                    <span class="text-xs font-weight-bold">${{ row.total_paid|floatformat:2 }}</span>
+                    <span class="text-xs font-weight-bold">Bs {{ row.total_paid|floatformat:2 }}</span>
                   </td>
                   <td class="align-middle">
                     <a href="{% url 'patient_history' row.patient.id %}" class="btn btn-sm bg-gradient-info">Ver Historial</a>

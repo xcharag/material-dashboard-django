@@ -23,6 +23,7 @@ urlpatterns = [
     path('', include('apps.dyn_dt.urls')),
     path('', include('apps.dyn_api.urls')),
     path('charts/', include('apps.charts.urls')),
+    path('finance/', include('apps.finance.urls')),
     path("admin/", admin.site.urls),
     path("", include('admin_material.urls'))
 ]

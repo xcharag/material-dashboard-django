@@ -63,6 +63,7 @@ INSTALLED_APPS = [
 
     # Charts
     "apps.charts",
+    "apps.finance",
 
     # Tooling API-GEN
     'rest_framework',            # Include DRF           # <-- NEW 
