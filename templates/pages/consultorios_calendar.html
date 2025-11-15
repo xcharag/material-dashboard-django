@@ -7,67 +7,59 @@
       <div class="card my-4">
         <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
           <div class="bg-gradient-success shadow-success border-radius-lg pt-4 pb-3 d-flex justify-content-between align-items-center">
-            <h6 class="text-white text-capitalize ps-3 mb-0">Calendario por Consultorio</h6>
+            <h6 class="text-white text-capitalize ps-3 mb-0">Calendario</h6>
+            <a href="{% url 'consult' %}" class="btn btn-sm btn-outline-light">Nueva Consulta</a>
           </div>
         </div>
         <div class="card-body px-4 pb-2">
-          <form method="get" class="row g-2 mb-4">
-            <div class="col-md-3">
-              <div class="input-group input-group-static">
-                <label>Fecha</label>
-                <input type="date" class="form-control" name="date" value="{{ target_date|date:'Y-m-d' }}" />
-              </div>
+          <form class="row g-2 mb-3" id="calendarFilters">
+            <div class="col-md-2">
+              <label class="form-label text-xs">Fecha Base</label>
+              <input type="date" class="form-control" name="date" value="{{ target_date|date:'Y-m-d' }}" />
             </div>
-            <div class="col-md-4">
-              <div class="input-group input-group-static">
-                <label>Consultorio</label>
-                <select class="form-select" name="consultorio">
-                  <option value="">Todos</option>
-                  {% for c in consultorios %}
-                    <option value="{{ c.id }}" {% if selected_consultorio_id == c.id %}selected{% endif %}>{{ c.name }}{% if c.address %} - {{ c.address }}{% endif %}</option>
-                  {% endfor %}
-                </select>
+            <div class="col-md-3">
+              <label class="form-label text-xs">Consultorio</label>
+              <select class="form-select" name="consultorio">
+                <option value="">Todos</option>
+                {% for c in consultorios %}
+                  <option value="{{ c.id }}" {% if selected_consultorio_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label text-xs">Vista inicial</label>
+              <select class="form-select" name="mode">
+                <option value="day" {% if mode == 'day' %}selected{% endif %}>Día</option>
+                <option value="week" {% if mode == 'week' %}selected{% endif %}>Semana</option>
+                <option value="month" {% if mode == 'month' %}selected{% endif %}>Mes</option>
+              </select>
+            </div>
+            <div class="col-md-3 status-filter">
+              <label class="form-label text-xs">Mostrar Estados</label>
+              <div class="d-flex flex-wrap gap-2">
+                <div class="form-check form-check-inline mb-0">
+                  <input class="form-check-input" type="checkbox" id="st-pending" value="pending" checked />
+                  <label class="form-check-label text-xxs" for="st-pending">Pendiente</label>
+                </div>
+                <div class="form-check form-check-inline mb-0">
+                  <input class="form-check-input" type="checkbox" id="st-attended" value="attended" checked />
+                  <label class="form-check-label text-xxs" for="st-attended">Atendida</label>
+                </div>
+                <div class="form-check form-check-inline mb-0">
+                  <input class="form-check-input" type="checkbox" id="st-completed" value="completed" checked />
+                  <label class="form-check-label text-xxs" for="st-completed">Completada</label>
+                </div>
+                <div class="form-check form-check-inline mb-0">
+                  <input class="form-check-input" type="checkbox" id="st-cancelled" value="cancelled" checked />
+                  <label class="form-check-label text-xxs" for="st-cancelled">Cancelada</label>
+                </div>
               </div>
             </div>
             <div class="col-md-2 d-flex align-items-end">
-              <button class="btn btn-success w-100">Aplicar</button>
+              <button class="btn btn-success w-100" type="submit">Aplicar</button>
             </div>
           </form>
-
-          <div class="table-responsive">
-            <table class="table table-bordered align-items-center mb-0">
-              <thead>
-                <tr>
-                  <th style="width:100px">Hora</th>
-                  {% for c in consultorios %}
-                  <th>{{ c.name }}</th>
-                  {% endfor %}
-                </tr>
-              </thead>
-              <tbody>
-                {% for row in cal_rows %}
-                <tr>
-                  <td class="text-xs text-secondary">{{ row.time }}</td>
-                  {% for cell in row.cells %}
-                    {% if cell.type == 'skip' %}
-                      
-                    {% elif cell.type == 'start' %}
-                      <td rowspan="{{ cell.rowspan }}">
-                        <div class="p-2 bg-light border rounded">
-                          <div class="text-xs fw-bold">{{ cell.consult.patient.first_name }} {{ cell.consult.patient.last_name }}</div>
-                          <div class="text-xxs text-secondary">{{ cell.consult.time }} · {{ cell.consult.duration }}m</div>
-                        </div>
-                      </td>
-                    {% else %}
-                      <td></td>
-                    {% endif %}
-                  {% endfor %}
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-
+          <div id="calendar"></div>
         </div>
       </div>
     </div>
@@ -75,4 +67,120 @@
 </div>
 {% endblock content %}
 
-{% block extra_js %}{% endblock extra_js %}
+{% block extra_js %}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+<style>
+  #calendar { min-height: 700px; }
+  .fc-event { cursor: pointer; font-size:11px; }
+  .fc-toolbar-title { font-size: 1.05rem; }
+  .color-picker-pop { position:absolute; background:#fff; border:1px solid #ccc; padding:6px; border-radius:6px; z-index:9999; box-shadow:0 2px 8px rgba(0,0,0,.15); }
+</style>
+<script>
+  (function(){
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+    function showToast(msg,type){
+      var container=document.getElementById('toastContainer');
+      if(!container){alert(msg);return;};
+      var w=document.createElement('div');
+      w.className='toast show mb-2';
+      w.innerHTML='<div class="toast-header"><strong class="me-auto text-'+(type||'success')+'">'+(type||'Info')+'</strong><button type="button" class="btn-close" data-bs-dismiss="toast"></button></div><div class="toast-body">'+msg+'</div>';
+      container.prepend(w);
+      try{ new bootstrap.Toast(w,{delay:4000}).show(); }catch(e){}
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      var calEl = document.getElementById('calendar');
+      var params = new URLSearchParams(window.location.search);
+      var consultorio = params.get('consultorio') || '';
+      var initialMode = params.get('mode')==='month' ? 'dayGridMonth' : (params.get('mode')==='week' ? 'timeGridWeek':'timeGridDay');
+      var calendar = new FullCalendar.Calendar(calEl, {
+        initialView: initialMode,
+        slotDuration: '00:30:00',
+        allDaySlot: false,
+        locale: 'es',
+        height: 'auto',
+        selectable: true,
+        editable: true,
+        nowIndicator: true,
+        headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
+        events: function(fetchInfo, success, failure){
+          var excluded = [];
+          document.querySelectorAll('.status-filter input[type=checkbox]').forEach(cb=>{ if(!cb.checked) excluded.push(cb.value); });
+          var url = '{% url "calendar_events_api" %}?start='+fetchInfo.startStr+'&end='+fetchInfo.endStr+(consultorio?('&consultorio='+consultorio):'')+(excluded.length?('&exclude='+excluded.join(',')):'');
+          fetch(url,{credentials:'same-origin'}).then(r=>r.json()).then(data=>success(data)).catch(err=>failure(err));
+        },
+        eventDrop: function(info){ updateEventTime(info); },
+        eventResize: function(info){ updateEventTime(info); },
+        eventClick: function(info){
+          var ev = info.event;
+          var id = ev.id;
+          var patientId = ev.extendedProps.patientId;
+          var menu = document.createElement('div');
+          menu.className='color-picker-pop';
+          menu.innerHTML='<div class="mb-2"><strong>'+ev.title+'</strong></div>'+
+            '<div class="d-flex gap-2 mb-2">'+
+            '<button class="btn btn-sm btn-danger" id="delBtn">Eliminar</button>'+
+            (patientId?'<button class="btn btn-sm btn-secondary" id="colorBtn">Color</button>':'')+
+            '<button class="btn btn-sm btn-outline-dark" id="closeBtn">Cerrar</button>'+
+            '</div>'+
+            (patientId?'<input type="color" id="newColor" value="'+(ev.backgroundColor||'#4FC3F7')+'" class="form-control form-control-color" style="width:60px;">':'');
+          document.body.appendChild(menu);
+          var rect = info.jsEvent.target.getBoundingClientRect();
+          menu.style.top = (window.scrollY + rect.top + 20)+'px';
+          menu.style.left = (window.scrollX + rect.left + 20)+'px';
+          function cleanup(){ menu.remove(); }
+          menu.querySelector('#closeBtn').onclick = cleanup;
+          var delBtn = menu.querySelector('#delBtn');
+          delBtn.onclick = function(){
+            if(!confirm('Eliminar consulta?')) return;
+            fetch('{% url "consultation_delete_api" 0 %}'.replace('/0/','/'+id+'/'),{
+              method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':getCookie('csrftoken')}})
+              .then(r=>r.json()).then(data=>{
+                if(data.ok){ ev.remove(); showToast('Consulta eliminada','success'); }
+                else showToast(data.message||'Error','danger');
+                cleanup();
+              }).catch(()=>{showToast('Error eliminando','danger');cleanup();});
+          };
+          var colorBtn = menu.querySelector('#colorBtn');
+            if(colorBtn){
+              colorBtn.onclick = function(){
+                var hex = menu.querySelector('#newColor').value;
+                fetch('{% url "patient_color_update_api" 0 %}'.replace('/0/','/'+patientId+'/'),{
+                  method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':getCookie('csrftoken'),'Content-Type':'application/x-www-form-urlencoded'},
+                  body: 'color='+encodeURIComponent(hex)
+                }).then(r=>r.json()).then(data=>{
+                  if(data.ok){ ev.setProp('backgroundColor',hex); ev.setProp('borderColor',hex); showToast('Color actualizado','success'); }
+                  else showToast(data.message||'Error','danger');
+                  cleanup();
+                }).catch(()=>{showToast('Error color','danger');cleanup();});
+              };
+            }
+        }
+      });
+      calendar.render();
+      function updateEventTime(info){
+        var ev = info.event;
+        fetch('{% url "consultation_time_update_api" 0 %}'.replace('/0/','/'+ev.id+'/'),{
+          method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':getCookie('csrftoken'),'Content-Type':'application/x-www-form-urlencoded'},
+          body:'start='+encodeURIComponent(ev.start.toISOString())+'&end='+encodeURIComponent(ev.end.toISOString())
+        }).then(r=>r.json()).then(data=>{ if(!data.ok){ showToast(data.message||'Error','danger'); info.revert(); } else { showToast('Actualizado','success'); } })
+          .catch(()=>{ showToast('Error actualización','danger'); info.revert(); });
+      }
+      document.querySelectorAll('.status-filter input[type=checkbox]').forEach(cb=>{ cb.addEventListener('change', ()=>calendar.refetchEvents()); });
+      document.getElementById('calendarFilters').addEventListener('submit', function(e){
+        e.preventDefault();
+        var form = e.target;
+        var formParams = new URLSearchParams(new FormData(form));
+        var newUrl = window.location.pathname+'?'+formParams.toString();
+        window.history.replaceState({},'',newUrl);
+        consultorio = formParams.get('consultorio')||'';
+        calendar.refetchEvents();
+      });
+    });
+  })();
+</script>
+{% endblock extra_js %}

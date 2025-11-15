@@ -70,6 +70,14 @@
                 </div>
               </div>
             </div>
+            <div class="row">
+              <div class="col-md-4">
+                <div class="input-group input-group-static mb-4">
+                  <label>Color (Calendario)</label>
+                  <input type="color" name="color" class="form-control form-control-color" value="{{ patient.color|default:'#4CAF50' }}" title="Color para identificar al paciente en el calendario">
+                </div>
+              </div>
+            </div>
             <!-- Only show for admins -->
             {% if is_admin %}
             <div class="row">

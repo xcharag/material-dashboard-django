@@ -13,6 +13,7 @@ from django.http import JsonResponse
 from datetime import datetime as dt, date as ddate
 from .utils.availability import generate_slots
 from datetime import time as dtime
+from django.utils import timezone
 
 # Create your views here.
 
@@ -136,6 +137,7 @@ def edit_patient(request, patient_id):
         phone = request.POST.get('phone')
         date_of_birth = request.POST.get('date_of_birth') or None
         address = request.POST.get('address')
+        color = request.POST.get('color') or ''
 
         # Update patient information
         patient.first_name = first_name
@@ -145,6 +147,8 @@ def edit_patient(request, patient_id):
         if date_of_birth:
             patient.date_of_birth = date_of_birth
         patient.address = address
+        if color:
+            patient.color = color
 
         # Only update professional if admin and value provided
         if is_admin and request.POST.get('professional'):
@@ -357,6 +361,23 @@ def consult(request):
             return redirect('professionals')
 
     if request.method == 'POST':
+        # Support deletion via calendar quick action (delete_consultation_id)
+        delete_id = request.POST.get('delete_consultation_id')
+        if delete_id and delete_id.isdigit():
+            cons = Consultation.objects.filter(id=int(delete_id)).first()
+            if cons:
+                # Authorization: staff or owning professional
+                if request.user.is_staff or cons.professional.user_id == request.user.id:
+                    cons.delete()
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({'ok': True, 'message': 'Consulta eliminada.'})
+                    messages.success(request, 'Consulta eliminada.')
+                    return redirect('consult')
+                else:
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({'ok': False, 'message': 'Sin permiso para eliminar.'}, status=403)
+                    messages.error(request, 'Sin permiso para eliminar esta consulta.')
+                    return redirect('consult')
         # Process form data
         patient_id = request.POST.get('patient')
         consultory_id = request.POST.get('consultory')
@@ -807,10 +828,10 @@ def consult_table(request):
 
 
 @login_required
-@staff_required
 def consultorios_calendar(request):
     # Params
     date_str = request.GET.get('date')
+    mode = request.GET.get('mode', 'day')
     try:
         target_date = dt.strptime(date_str, '%Y-%m-%d').date() if date_str else ddate.today()
     except Exception:
@@ -822,60 +843,252 @@ def consultorios_calendar(request):
     else:
         consultorios = list(Consultorio.objects.filter(is_active=True))
 
-    # Time grid setup (07:00 to 21:00 in 30 min steps)
     from datetime import time as dtime
-    start_time = dtime(7, 0)
-    end_time = dtime(21, 0)
-    step_minutes = 30
+    start_time = dtime(7, 0); end_time = dtime(21, 0); step_minutes = 30
     total_slots = int(((end_time.hour*60 + end_time.minute) - (start_time.hour*60 + start_time.minute)) / step_minutes)
     times = []
-    sh = start_time.hour; sm = start_time.minute
+    base_minutes = start_time.hour*60 + start_time.minute
     for i in range(total_slots):
-        minutes = sh*60 + sm + i*step_minutes
+        minutes = base_minutes + i*step_minutes
         h = minutes // 60; m = minutes % 60
         times.append(f"{h:02d}:{m:02d}")
 
-    # Build grid per consultorio
-    columns_rows = {}
-    for c in consultorios:
-        rows = [None] * total_slots
-        qs = Consultation.objects.filter(date=target_date).filter(consultorio_fk=c)
-        if not qs.exists():
-            qs = Consultation.objects.filter(date=target_date, consultory=c.name)
-        for cons in qs.order_by('time'):
-            idx = int(((cons.time.hour*60 + cons.time.minute) - (start_time.hour*60 + start_time.minute)) / step_minutes)
-            if idx < 0:
-                continue
-            # ceil division for span
-            span = (cons.duration or 60)
-            span = int((span + step_minutes - 1) / step_minutes)
-            span = min(span, max(0, total_slots - idx))
-            if idx >= total_slots:
-                continue
-            if rows[idx] is None:
-                rows[idx] = {'type': 'start', 'consult': cons, 'rowspan': span}
-                for k in range(1, span):
-                    if idx + k < total_slots:
-                        rows[idx + k] = {'type': 'skip'}
-        columns_rows[c.id] = rows
+    day_rows = []
+    week_days = []
+    week_grid = []
+    month_weeks = []
+    month_map = {}
 
-    cal_rows = []
-    for i, t in enumerate(times):
-        cells = []
+    if mode == 'day':
+        columns_rows = {}
         for c in consultorios:
-            cell = columns_rows[c.id][i]
-            if cell is None:
-                cells.append({'type': 'empty'})
-            else:
-                cells.append(cell)
-        cal_rows.append({'time': t, 'cells': cells})
+            rows = [None] * total_slots
+            qs = Consultation.objects.filter(date=target_date).filter(consultorio_fk=c)
+            if not qs.exists():
+                qs = Consultation.objects.filter(date=target_date, consultory=c.name)
+            for cons in qs.order_by('time'):
+                idx = int(((cons.time.hour*60 + cons.time.minute) - base_minutes) / step_minutes)
+                if idx < 0 or idx >= total_slots:
+                    continue
+                span = cons.duration or 60
+                span = int((span + step_minutes - 1) / step_minutes)
+                span = min(span, max(1, total_slots - idx))
+                if rows[idx] is None:
+                    rows[idx] = {'type': 'start', 'consult': cons, 'rowspan': span}
+                    for k in range(1, span):
+                        if idx + k < total_slots:
+                            rows[idx + k] = {'type': 'skip'}
+            columns_rows[c.id] = rows
+        for i, t in enumerate(times):
+            row_cells = []
+            for c in consultorios:
+                cell = columns_rows[c.id][i]
+                row_cells.append(cell if cell is not None else {'type': 'empty'})
+            day_rows.append({'time': t, 'cells': row_cells})
+
+    elif mode == 'week':
+        start_week = target_date - timedelta(days=target_date.weekday())
+        week_days = [start_week + timedelta(days=d) for d in range(7)]
+        selected = None
+        if consultorio_id and str(consultorio_id).isdigit():
+            selected = Consultorio.objects.filter(id=int(consultorio_id)).first()
+        if not selected and consultorios:
+            selected = consultorios[0]
+        for t in times:
+            row_cells = []
+            hour, minute = [int(x) for x in t.split(':')]
+            for day in week_days:
+                qs = Consultation.objects.filter(date=day)
+                if selected:
+                    qs = qs.filter(consultorio_fk=selected) | qs.filter(consultory=selected.name)
+                match = qs.filter(time__hour=hour, time__minute=minute).order_by('time').first()
+                if match:
+                    row_cells.append({'type': 'start', 'consult': match, 'rowspan': 1})
+                else:
+                    row_cells.append({'type': 'empty'})
+            week_grid.append({'time': t, 'cells': row_cells})
+
+    elif mode == 'month':
+        first_day = target_date.replace(day=1)
+        start_cal = first_day - timedelta(days=first_day.weekday())
+        for w in range(6):
+            week_days_row = [start_cal + timedelta(days=w*7 + d) for d in range(7)]
+            month_weeks.append(week_days_row)
+        end_cal = month_weeks[-1][-1]
+        qs_month = Consultation.objects.filter(date__gte=month_weeks[0][0], date__lte=end_cal)
+        if consultorio_id and str(consultorio_id).isdigit():
+            qs_month = qs_month.filter(consultorio_fk_id=int(consultorio_id))
+        for cons in qs_month.select_related('patient'):
+            month_map.setdefault(cons.date, []).append(cons)
+
+    # Restrict for professionals (non-staff)
+    if not request.user.is_staff:
+        prof = Professional.objects.filter(user=request.user).first()
+        pid = prof.id if prof else None
+        if mode == 'day':
+            for r in day_rows:
+                for cell in r['cells']:
+                    if cell.get('type') == 'start' and cell['consult'].professional_id != pid:
+                        cell.clear(); cell['type'] = 'empty'
+        elif mode == 'week':
+            for r in week_grid:
+                for cell in r['cells']:
+                    if cell.get('type') == 'start' and cell['consult'].professional_id != pid:
+                        cell.clear(); cell['type'] = 'empty'
+        elif mode == 'month':
+            for d, items in list(month_map.items()):
+                month_map[d] = [c for c in items if c.professional_id == pid]
+                if not month_map[d]:
+                    month_map.pop(d, None)
 
     context = {
         'segment': 'consultorios_calendar',
         'consultorios': consultorios,
         'times': times,
-        'cal_rows': cal_rows,
+        'day_rows': day_rows,
+        'week_days': week_days,
+        'week_grid': week_grid,
+        'month_weeks': month_weeks,
+        'month_map': month_map,
         'target_date': target_date,
         'selected_consultorio_id': int(consultorio_id) if consultorio_id and str(consultorio_id).isdigit() else '',
+        'mode': mode,
     }
     return render(request, 'pages/consultorios_calendar.html', context)
+
+@login_required
+def consultation_delete_api(request, consultation_id):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'message': 'Método no permitido'}, status=405)
+    cons = Consultation.objects.filter(id=consultation_id).first()
+    if not cons:
+        return JsonResponse({'ok': False, 'message': 'Consulta no encontrada'}, status=404)
+    if not (request.user.is_staff or cons.professional.user_id == request.user.id):
+        return JsonResponse({'ok': False, 'message': 'Sin permiso'}, status=403)
+    cons.delete()
+    return JsonResponse({'ok': True, 'message': 'Consulta eliminada'})
+
+@login_required
+def patient_color_update_api(request, patient_id):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'message': 'Método no permitido'}, status=405)
+    pat = Patient.objects.filter(id=patient_id).first()
+    if not pat:
+        return JsonResponse({'ok': False, 'message': 'Paciente no encontrado'}, status=404)
+    if not (request.user.is_staff or (pat.professional and pat.professional.user_id == request.user.id)):
+        return JsonResponse({'ok': False, 'message': 'Sin permiso'}, status=403)
+    color = request.POST.get('color', '').strip()
+    if not color.startswith('#') or len(color) not in (4,7):
+        return JsonResponse({'ok': False, 'message': 'Color inválido'}, status=400)
+    pat.color = color
+    pat.save(update_fields=['color'])
+    return JsonResponse({'ok': True, 'message': 'Color actualizado', 'color': color})
+
+def _fallback_color(pid: int):
+    palette = ['#D4E157','#4FC3F7','#FFB74D','#BA68C8','#81C784','#64B5F6','#E57373','#FFD54F','#4DB6AC','#A1887F']
+    return palette[pid % len(palette)]
+
+@login_required
+def calendar_events_api(request):
+    """Return consultations as FullCalendar events.
+    Optional query params: consultorio (id), start, end (ISO dates)
+    """
+    consultorio_id = request.GET.get('consultorio')
+    start_str = request.GET.get('start')
+    end_str = request.GET.get('end')
+    exclude_str = request.GET.get('exclude')  # comma separated statuses to hide
+    qs = Consultation.objects.all().select_related('patient','professional','consultorio_fk')
+    if consultorio_id and consultorio_id.isdigit():
+        qs = qs.filter(consultorio_fk_id=int(consultorio_id)) | qs.filter(consultory=Consultorio.objects.filter(id=int(consultorio_id)).values_list('name', flat=True).first())
+    # Date range filtering
+    if start_str and end_str:
+        try:
+            start_date = dt.strptime(start_str[:10], '%Y-%m-%d').date()
+            end_date = dt.strptime(end_str[:10], '%Y-%m-%d').date()
+            qs = qs.filter(date__gte=start_date, date__lte=end_date)
+        except Exception:
+            pass
+    # Status exclusion
+    if exclude_str:
+        to_exclude = [s.strip() for s in exclude_str.split(',') if s.strip()]
+        if to_exclude:
+            qs = qs.exclude(status__in=to_exclude)
+    # Restrict for non-staff professionals
+    if not request.user.is_staff:
+        prof = Professional.objects.filter(user=request.user).first()
+        if prof:
+            qs = qs.filter(professional=prof)
+        else:
+            qs = qs.none()
+
+    events = []
+    for c in qs:
+        if not c.time:
+            continue
+        start_dt = dt.combine(c.date, c.time)
+        end_dt = start_dt + timedelta(minutes=c.duration or 60)
+        patient = c.patient
+        color = patient.color if patient and patient.color else _fallback_color(patient.id if patient else c.id)
+        events.append({
+            'id': c.id,
+            'title': (patient.first_name + ' ' + patient.last_name) if patient else 'Consulta',
+            'start': start_dt.isoformat(),
+            'end': end_dt.isoformat(),
+            'extendedProps': {
+                'status': c.status,
+                'consultorio': c.consultorio_fk.name if c.consultorio_fk else c.consultory,
+                'patientId': patient.id if patient else None,
+                'duration': c.duration,
+            },
+            'backgroundColor': color,
+            'borderColor': color,
+        })
+    return JsonResponse(events, safe=False)
+
+@login_required
+def consultation_time_update_api(request, consultation_id):
+    """Update start/end (thus date/time & duration) of a consultation for drag/resize operations."""
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'message': 'Método no permitido'}, status=405)
+    cons = Consultation.objects.select_related('professional','consultorio_fk','patient').filter(id=consultation_id).first()
+    if not cons:
+        return JsonResponse({'ok': False, 'message': 'Consulta no encontrada'}, status=404)
+    if not (request.user.is_staff or (cons.professional and cons.professional.user_id == request.user.id)):
+        return JsonResponse({'ok': False, 'message': 'Sin permiso'}, status=403)
+    start_iso = request.POST.get('start')
+    end_iso = request.POST.get('end')
+    try:
+        new_start = dt.fromisoformat(start_iso)
+        new_end = dt.fromisoformat(end_iso)
+    except Exception:
+        return JsonResponse({'ok': False, 'message': 'Formato de fecha inválido'}, status=400)
+    if new_end <= new_start:
+        return JsonResponse({'ok': False, 'message': 'Fin debe ser posterior al inicio'}, status=400)
+    # Prevent moving into the past (optional rule)
+    if new_start < timezone.now() - timedelta(minutes=5):
+        return JsonResponse({'ok': False, 'message': 'No se puede mover a tiempo pasado'}, status=400)
+    new_date = new_start.date()
+    new_time = new_start.time().replace(second=0, microsecond=0)
+    new_duration = int((new_end - new_start).total_seconds() // 60)
+    # Conflict detection within same consultorio
+    base_qs = Consultation.objects.filter(date=new_date)
+    if cons.consultorio_fk:
+        base_qs = base_qs.filter(consultorio_fk=cons.consultorio_fk) | base_qs.filter(consultory=cons.consultorio_fk.name)
+    elif cons.consultory:
+        base_qs = base_qs.filter(consultory=cons.consultory)
+    conflicts = []
+    new_start_dt = dt.combine(new_date, new_time)
+    new_end_dt = new_start_dt + timedelta(minutes=new_duration)
+    for other in base_qs.exclude(id=cons.id):
+        o_start_dt = dt.combine(other.date, other.time)
+        o_end_dt = o_start_dt + timedelta(minutes=other.duration or 60)
+        if new_start_dt < o_end_dt and o_start_dt < new_end_dt:
+            conflicts.append(other.id)
+            break
+    if conflicts:
+        return JsonResponse({'ok': False, 'message': 'Conflicto con otra consulta'}, status=409)
+    cons.date = new_date
+    cons.time = new_time
+    cons.duration = new_duration
+    cons.save(update_fields=['date','time','duration'])
+    return JsonResponse({'ok': True, 'message': 'Actualizado', 'id': cons.id, 'date': str(cons.date), 'time': cons.time.strftime('%H:%M'), 'duration': cons.duration})

@@ -21,6 +21,7 @@ class Patient(models.Model):
     address = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     professional = models.ForeignKey('Professional', on_delete=models.SET_NULL, blank=True, null=True, related_name='patients')
+    color = models.CharField(max_length=7, blank=True, default='', help_text="Hex color (#RRGGBB) for calendar display")
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
