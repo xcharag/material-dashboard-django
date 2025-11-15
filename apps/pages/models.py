@@ -92,6 +92,19 @@ class Consultation(models.Model):
         return f"{self.patient} - {self.date} {self.time}"
 
 
+class Consultorio(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    address = models.CharField(max_length=255, blank=True, default='')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 # --- New models for session notes and attachments ---
 def consultation_upload_path(instance, filename):
     # Files stored under consultations/<consultation_id>/<type>/<filename>

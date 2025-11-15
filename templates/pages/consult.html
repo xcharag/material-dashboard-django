@@ -15,14 +15,6 @@
           </div>
         </div>
         <div class="card-body px-4 pb-2">
-          <!-- Display messages if any -->
-            {% if messages %}
-              {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} text-white" role="alert">
-                  {{ message }}
-                </div>
-              {% endfor %}
-            {% endif %}
 
           <!-- Consultation Form -->
           <form method="post">
@@ -44,10 +36,9 @@
                   <label for="consultory">Consultorio</label>
                   <select name="consultory" id="consultory" class="form-control" required>
                     <option value="">Seleccionar consultorio</option>
-                    <option value="A1">Consultorio A1</option>
-                    <option value="A2">Consultorio A2</option>
-                    <option value="B1">Consultorio B1</option>
-                    <option value="B2">Consultorio B2</option>
+                    {% for c in consultorios %}
+                      {% if c.is_active %}<option value="{{ c.name }}">{{ c.name }}{% if c.address %} - {{ c.address }}{% endif %}</option>{% endif %}
+                    {% endfor %}
                   </select>
                 </div>
               </div>
@@ -56,7 +47,7 @@
               <div class="col-md-6">
                 <div class="input-group input-group-static mb-4">
                   <label>Fecha</label>
-                  <input type="date" name="date" class="form-control" required>
+                  <input type="date" name="date" class="form-control" required min="{{ today|date:'Y-m-d' }}">
                 </div>
               </div>
               <div class="col-md-6">
@@ -77,8 +68,17 @@
               </div>
               <div class="col-md-6">
                 <div class="input-group input-group-static mb-4">
-                  <label>Duración (minutos)</label>
-                  <input type="number" name="duration" value="60" class="form-control">
+                  <label>Duración</label>
+                  <select name="duration" id="duration" class="form-control">
+                    <option value="30">30 minutos</option>
+                    <option value="60" selected>1 hora</option>
+                    <option value="90">1 hora 30 minutos</option>
+                    <option value="120">2 horas</option>
+                    <option value="150">2 horas 30 minutos</option>
+                    <option value="180">3 horas</option>
+                    <option value="210">3 horas 30 minutos</option>
+                    <option value="240">4 horas</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -125,7 +125,7 @@
           </div>
         </div>
         <div class="card-body px-4 pb-2">
-          <form method="get" class="row g-2 mb-3">
+          <form method="get" class="row g-2 mb-3" id="consultFilterForm">
             <div class="col-md-3">
               <select name="patient" class="form-select">
                 <option value="">Filtrar Paciente</option>
@@ -137,10 +137,9 @@
             <div class="col-md-2">
               <select name="consultory" class="form-select">
                 <option value="">Consultorio</option>
-                <option value="A1" {% if request.GET.consultory == 'A1' %}selected{% endif %}>A1</option>
-                <option value="A2" {% if request.GET.consultory == 'A2' %}selected{% endif %}>A2</option>
-                <option value="B1" {% if request.GET.consultory == 'B1' %}selected{% endif %}>B1</option>
-                <option value="B2" {% if request.GET.consultory == 'B2' %}selected{% endif %}>B2</option>
+                {% for c in consultorios %}
+                  <option value="{{ c.name }}" {% if request.GET.consultory == c.name %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
               </select>
             </div>
             <div class="col-md-2">
@@ -150,7 +149,9 @@
               <select name="status" class="form-select">
                 <option value="">Estado</option>
                 {% for code,label in status_choices %}
+                  {% if code != 'pending' %}
                   <option value="{{ code }}" {% if request.GET.status == code %}selected{% endif %}>{{ label }}</option>
+                  {% endif %}
                 {% endfor %}
               </select>
             </div>
@@ -158,51 +159,8 @@
               <button class="btn btn-success w-100">Filtrar</button>
             </div>
           </form>
-          <div class="table-responsive p-0">
-            <table class="table align-items-center mb-0">
-              <thead>
-                <tr>
-                  <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Paciente</th>
-                  <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Consultorio</th>
-                  <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Fecha y Hora</th>
-                  <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Costo</th>
-                  <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Estado</th>
-                  <th class="text-secondary opacity-7"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for consult in consultations %}
-                <tr>
-                  <td>
-                    <div class="d-flex px-2 py-1">
-                      <div class="d-flex flex-column justify-content-center">
-                        <h6 class="mb-0 text-sm">{{ consult.patient.first_name }} {{ consult.patient.last_name }}</h6>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <p class="text-xs font-weight-bold mb-0">{{ consult.consultory }}</p>
-                  </td>
-                  <td class="align-middle text-center text-sm">
-                    <p class="text-xs font-weight-bold mb-0">{{ consult.date|date:"d/m/Y" }} {{ consult.time }}</p>
-                  </td>
-                  <td class="align-middle text-center">
-                    <span class="text-secondary text-xs font-weight-bold">${{ consult.charge }}</span>
-                  </td>
-                  <td class="align-middle">
-                    <span class="badge bg-gradient-{% if consult.status == 'pending' %}warning{% elif consult.status == 'attended' %}info{% elif consult.status == 'completed' %}secondary{% else %}danger{% endif %}">{{ consult.get_status_display }}</span>
-                  </td>
-                  <td class="align-middle">
-                    <a href="{% url 'start_session' consult.id %}" class="btn btn-sm bg-gradient-success mb-1">Iniciar</a>
-                  </td>
-                </tr>
-                {% empty %}
-                <tr>
-                  <td colspan="5" class="text-center py-4">No hay consultas programadas</td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
+          <div id="consultTableContainer">
+            {% include 'pages/_consult_table.html' %}
           </div>
         </div>
       </div>
@@ -216,10 +174,35 @@
 <script>
   (function() {
     function get(url) { return fetch(url, {credentials:'same-origin'}).then(r => r.json()); }
+    function getHTML(url) { return fetch(url, {credentials:'same-origin'}).then(r => r.text()); }
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+    function showToast(message, level) {
+      // level: success, info, warning, danger
+      var container = document.getElementById('toastContainer');
+      if (!container) return alert(message);
+      var wrapper = document.createElement('div');
+      wrapper.className = 'toast show mb-2';
+      wrapper.setAttribute('role','alert');
+      wrapper.setAttribute('aria-live','assertive');
+      wrapper.setAttribute('aria-atomic','true');
+      wrapper.innerHTML = `
+        <div class="toast-header bg-gradient-${level === 'error' ? 'danger' : level} text-white">
+          <i class="material-symbols-rounded me-2">notifications</i>
+          <strong class="me-auto">Notificación</strong>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">${message}</div>`;
+      container.prepend(wrapper);
+      try { new bootstrap.Toast(wrapper, {delay: 5000}).show(); } catch(e) {}
+    }
     function refreshSlots() {
       var sel = document.getElementById('time');
       var date = document.querySelector('input[name="date"]').value;
-      var duration = document.querySelector('input[name="duration"]').value || '60';
+      var duration = document.querySelector('select[name="duration"]').value || '60';
       var professional = document.getElementById('professional');
       var params = new URLSearchParams();
 
@@ -261,15 +244,57 @@
         sel.innerHTML = '<option value="">Error al cargar horarios</option>';
       });
     }
+    function refreshTable() {
+      var form = document.getElementById('consultFilterForm');
+      if (!form) return;
+      var params = new URLSearchParams(new FormData(form)).toString();
+      var url = '{% url "consult_table" %}' + (params ? ('?' + params) : '');
+      getHTML(url).then(function(html){
+        var container = document.getElementById('consultTableContainer');
+        if (container) container.innerHTML = html;
+      });
+    }
     document.addEventListener('DOMContentLoaded', function(){
       var date = document.querySelector('input[name="date"]');
-      var dur = document.querySelector('input[name="duration"]');
+      var dur = document.querySelector('select[name="duration"]');
       var prof = document.getElementById('professional');
+      var createForm = document.querySelector('form[method="post"]');
+      var filterForm = document.getElementById('consultFilterForm');
       if (date) date.addEventListener('change', refreshSlots);
       if (dur) dur.addEventListener('input', refreshSlots);
       if (prof) prof.addEventListener('change', refreshSlots);
+      if (filterForm) {
+        filterForm.addEventListener('submit', function(ev){ ev.preventDefault(); refreshTable(); });
+        filterForm.addEventListener('change', function(){ refreshTable(); });
+      }
+      if (createForm) {
+        createForm.id = 'consultCreateForm';
+        createForm.addEventListener('submit', function(ev){
+          ev.preventDefault();
+          var fd = new FormData(createForm);
+          fetch('{% url "consult" %}', {
+            method: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken')},
+            body: fd,
+            credentials: 'same-origin'
+          }).then(function(r){ return r.json().catch(()=>({ok:false,message:'Error de servidor'})); })
+            .then(function(res){
+              if (res && res.ok) {
+                showToast(res.message || 'Consulta programada con éxito!', 'success');
+                refreshTable();
+                // Reset time only; keep other selections
+                var timeSel = document.getElementById('time');
+                if (timeSel) timeSel.value = '';
+              } else {
+                showToast((res && res.message) || 'No se pudo programar la consulta', 'danger');
+              }
+            }).catch(function(){ showToast('Error de red', 'danger'); });
+        });
+      }
       // Trigger initial load if date already chosen or for admin with auto-selected professional
       if (date && date.value) { refreshSlots(); }
+      // Initial table load respects current filters
+      refreshTable();
     });
   })();
 </script>

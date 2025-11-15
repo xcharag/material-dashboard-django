@@ -31,4 +31,6 @@ urlpatterns = [
     path('api/available-slots/', views.available_slots_api, name='available_slots_api'),
     path('mis-pacientes/', views.my_patients, name='my_patients'),
     path('mis-pacientes/<int:patient_id>/', views.patient_history, name='patient_history'),
+    path('config/consultorios/', views.config_consultorios, name='config_consultorios'),
+    path('consult/list/', views.consult_table, name='consult_table'),
 ]

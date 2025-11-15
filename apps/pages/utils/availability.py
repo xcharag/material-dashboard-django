@@ -2,9 +2,11 @@ from datetime import datetime, time, timedelta
 from django.utils import timezone
 from apps.pages.models import WeeklyAvailability, AvailabilityException, Consultation
 
-def generate_slots(professional, date_obj, duration_minutes=60):
+def generate_slots(professional, date_obj, duration_minutes=60, step_minutes=30):
     """Return list of available start times (as 'HH:MM') for professional on given date.
-    Excludes slots outside availability window and those overlapping existing consultations."""
+    Steps through the day in `step_minutes` increments (default 30) but only returns
+    start times where a full block of `duration_minutes` fits without overlapping
+    an existing consultation or leaving the availability window."""
     # Determine weekday availability
     weekday = date_obj.weekday()  # Monday=0
     try:
@@ -41,6 +43,7 @@ def generate_slots(professional, date_obj, duration_minutes=60):
     cursor = datetime.combine(date_obj, start)
     end_limit = datetime.combine(date_obj, end)
     block = timedelta(minutes=duration_minutes)
+    step = timedelta(minutes=step_minutes)
 
     while cursor + block <= end_limit:
         slot_start = cursor
@@ -53,5 +56,5 @@ def generate_slots(professional, date_obj, duration_minutes=60):
                 break
         if not conflict:
             slots.append(slot_start.strftime('%H:%M'))
-        cursor += timedelta(minutes=duration_minutes)
+        cursor += step
     return slots

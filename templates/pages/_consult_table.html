@@ -1,0 +1,46 @@
+<div class="table-responsive p-0">
+  <table class="table align-items-center mb-0">
+    <thead>
+      <tr>
+        <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Paciente</th>
+        <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Consultorio</th>
+        <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Fecha y Hora</th>
+        <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Costo</th>
+        <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Estado</th>
+        <th class="text-secondary opacity-7"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for consult in consultations %}
+      <tr>
+        <td>
+          <div class="d-flex px-2 py-1">
+            <div class="d-flex flex-column justify-content-center">
+              <h6 class="mb-0 text-sm">{{ consult.patient.first_name }} {{ consult.patient.last_name }}</h6>
+            </div>
+          </div>
+        </td>
+        <td>
+          <p class="text-xs font-weight-bold mb-0">{{ consult.consultory }}</p>
+        </td>
+        <td class="align-middle text-center text-sm">
+          <p class="text-xs font-weight-bold mb-0">{{ consult.date|date:"d/m/Y" }} {{ consult.time }}</p>
+        </td>
+        <td class="align-middle text-center">
+          <span class="text-secondary text-xs font-weight-bold">${{ consult.charge }}</span>
+        </td>
+        <td class="align-middle">
+          <span class="badge bg-gradient-{% if consult.status == 'pending' %}warning{% elif consult.status == 'attended' %}info{% elif consult.status == 'completed' %}secondary{% else %}danger{% endif %}">{{ consult.get_status_display }}</span>
+        </td>
+        <td class="align-middle">
+          <a href="{% url 'start_session' consult.id %}" class="btn btn-sm bg-gradient-success mb-1">Iniciar</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="5" class="text-center py-4">No hay consultas programadas</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

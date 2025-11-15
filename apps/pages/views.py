@@ -4,13 +4,13 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import views as auth_views
 from django.db import IntegrityError
-from .models import Patient, Professional, Consultation, ConsultationNote, ConsultationAttachment
+from .models import Patient, Professional, Consultation, ConsultationNote, ConsultationAttachment, Consultorio
 from django.contrib import messages
 from .forms import CustomLoginForm, UsernameRecoveryForm
 from .forms import ProfessionalProfileForm, ProfessionalContactForm
 from .forms import AvailabilityExceptionForm
 from django.http import JsonResponse
-from datetime import datetime as dt
+from datetime import datetime as dt, date as ddate
 from .utils.availability import generate_slots
 from datetime import time as dtime
 
@@ -370,18 +370,37 @@ def consult(request):
         if is_admin and request.POST.get('professional'):
             professional = Professional.objects.get(id=request.POST.get('professional'))
 
-        # Create new consultation
+        # Parse and validate date is not in the past
+        try:
+            date_obj = dt.strptime(date, '%Y-%m-%d').date()
+        except Exception:
+            date_obj = None
+        if not date_obj or date_obj < ddate.today():
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'ok': False, 'message': 'La fecha no puede ser anterior a hoy.'}, status=400)
+            messages.error(request, 'La fecha no puede ser anterior a hoy.')
+            return redirect('consult')
+
+        # Validation: prevent double booking same consultory/date/time
+        if Consultation.objects.filter(date=date_obj, time=time, consultory=consultory).exists():
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'ok': False, 'message': 'Ya existe una consulta en ese consultorio para la misma fecha y hora.'}, status=400)
+            messages.error(request, 'Ya existe una consulta en ese consultorio para la misma fecha y hora.')
+            return redirect('consult')
+
         patient = Patient.objects.get(id=patient_id)
         Consultation.objects.create(
             patient=patient,
             professional=professional,
             consultory=consultory,
-            date=date,
+            date=date_obj,
             time=time,
             duration=duration,
             charge=charge,
             notes=notes
         )
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'ok': True, 'message': 'Consulta programada con éxito!'})
         messages.success(request, 'Consulta programada con éxito!')
         return redirect('consult')
 
@@ -423,6 +442,8 @@ def consult(request):
         date__gte=datetime.now().date()
     ).order_by('date', 'time').first()
 
+    consultorios = Consultorio.objects.filter(is_active=True)
+
     return render(request, 'pages/consult.html', {
         'segment': 'consult',
         'patients': patients,
@@ -430,6 +451,8 @@ def consult(request):
         'all_professionals': all_professionals,
         'is_admin': is_admin,
         'status_choices': Consultation.STATUS_CHOICES,
+        'consultorios': consultorios,
+        'today': ddate.today(),
     })
 
 
@@ -683,5 +706,87 @@ def available_slots_api(request):
         except Professional.DoesNotExist:
             return JsonResponse({'error': 'Professional not found'}, status=404)
 
-    slots = generate_slots(professional, date_obj, duration_minutes=duration)
+    # Always step in 30 minute increments regardless of duration
+    slots = generate_slots(professional, date_obj, duration_minutes=duration, step_minutes=30)
     return JsonResponse({'slots': slots})
+
+
+def staff_required(view_func):
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_staff:
+            messages.error(request, 'No tienes permiso para este apartado')
+            return redirect('index')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+@login_required
+@staff_required
+def config_consultorios(request):
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'add':
+            name = request.POST.get('name')
+            address = request.POST.get('address')
+            if not name:
+                messages.error(request, 'Nombre requerido')
+                return redirect('config_consultorios')
+            if Consultorio.objects.filter(name=name).exists():
+                messages.error(request, 'Ya existe un consultorio con ese nombre')
+                return redirect('config_consultorios')
+            Consultorio.objects.create(name=name, address=address or '')
+            messages.success(request, 'Consultorio agregado')
+            return redirect('config_consultorios')
+        elif action == 'delete':
+            cid = request.POST.get('consultorio_id')
+            consultorio = Consultorio.objects.filter(id=cid).first()
+            if consultorio:
+                consultorio.delete()
+                messages.success(request, 'Consultorio eliminado')
+            else:
+                messages.error(request, 'Consultorio no encontrado')
+            return redirect('config_consultorios')
+        elif action == 'toggle':
+            cid = request.POST.get('consultorio_id')
+            consultorio = Consultorio.objects.filter(id=cid).first()
+            if consultorio:
+                consultorio.is_active = not consultorio.is_active
+                consultorio.save()
+                messages.success(request, 'Estado actualizado')
+            else:
+                messages.error(request, 'Consultorio no encontrado')
+            return redirect('config_consultorios')
+
+    consultorios = Consultorio.objects.all().order_by('name')
+    return render(request, 'pages/config_consultorios.html', {
+        'segment': 'config_consultorios',
+        'consultorios': consultorios,
+    })
+
+
+@login_required
+def consult_table(request):
+    # Same filters as consult view, but only return the table fragment
+    is_admin = request.user.is_staff
+    if is_admin:
+        qs = Consultation.objects.all()
+    else:
+        prof = Professional.objects.filter(user=request.user).first()
+        qs = Consultation.objects.filter(professional=prof) if prof else Consultation.objects.none()
+
+    patient_filter = request.GET.get('patient')
+    consultory_filter = request.GET.get('consultory')
+    date_filter = request.GET.get('date')
+    status_filter = request.GET.get('status')
+    if patient_filter:
+        qs = qs.filter(patient_id=patient_filter)
+    if consultory_filter:
+        qs = qs.filter(consultory=consultory_filter)
+    if date_filter:
+        qs = qs.filter(date=date_filter)
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+    consultations = qs.order_by('date', 'time')
+
+    return render(request, 'pages/_consult_table.html', {
+        'consultations': consultations,
+    })
