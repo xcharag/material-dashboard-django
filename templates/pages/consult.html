@@ -148,6 +148,7 @@
             <div class="col-md-3">
               <select name="status" class="form-select">
                 <option value="">Estado</option>
+                <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>Pendiente</option>
                 <option value="attended" {% if request.GET.status == 'attended' %}selected{% endif %}>Atendida</option>
                 <option value="no_show" {% if request.GET.status == 'no_show' %}selected{% endif %}>No Atendida</option>
                 <option value="cancelled" {% if request.GET.status == 'cancelled' %}selected{% endif %}>Cancelada</option>
