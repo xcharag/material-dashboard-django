@@ -1336,6 +1336,7 @@ def report_sessions(request):
     thread = None
     generated = None
     error = None
+    info = None
 
     if request.method == 'POST' and selected_patient:
         # Resolve professional for thread: current professional or patient's assigned professional (for staff)
@@ -1352,43 +1353,67 @@ def report_sessions(request):
             if created or not thread.model or thread.model == 'gpt-4o-mini':
                 thread.model = 'gpt-5'
                 thread.save(update_fields=['model'])
-            # Build context
-            context_text = _build_patient_context(thread_prof, selected_patient)
-            thread.context = context_text
-            thread.save(update_fields=['context', 'updated_at'])
+            # Compute current stats and decide whether to rebuild context
+            cons_qs = Consultation.objects.filter(professional=thread_prof, patient=selected_patient)
+            cur_consult_count = cons_qs.count()
+            cur_last_consult = cons_qs.order_by('-date', '-time', '-id').first()
+            cur_note_count = ConsultationNote.objects.filter(consultation__in=cons_qs).count()
+            cur_att_count = ConsultationAttachment.objects.filter(consultation__in=cons_qs).count()
+
+            force = (request.POST.get('force') == '1')
+            unchanged = (
+                hasattr(thread, 'context_consult_count') and
+                thread.context_consult_count == cur_consult_count and
+                thread.context_note_count == cur_note_count and
+                thread.context_attachment_count == cur_att_count and
+                ((getattr(thread, 'context_last_consultation_id', None) or None) == (cur_last_consult.id if cur_last_consult else None))
+            )
+            if not force and unchanged:
+                info = 'No hay cambios desde el último resumen. Se mantiene el anterior.'
+            else:
+                # Build context and persist tracking fields
+                context_text = _build_patient_context(thread_prof, selected_patient)
+                thread.context = context_text
+                if hasattr(thread, 'context_consult_count'):
+                    thread.context_consult_count = cur_consult_count
+                    thread.context_note_count = cur_note_count
+                    thread.context_attachment_count = cur_att_count
+                    thread.context_last_consultation = cur_last_consult
+                    thread.save(update_fields=['context', 'context_consult_count', 'context_note_count', 'context_attachment_count', 'context_last_consultation', 'updated_at'])
+                else:
+                    thread.save(update_fields=['context', 'updated_at'])
 
             client = _openai_client()
             if not client:
                 error = 'Configura OPENAI_API_KEY para generar el resumen.'
             else:
                 try:
-                    # Upload attachments and prepare input parts (files + instructions + context)
-                    file_ids = _collect_attachment_file_ids(client, thread_prof, selected_patient)
-                    input_parts = []
-                    for fid in file_ids:
-                        input_parts.append({"type": "input_file", "file_id": fid})
-                    # System-style instruction packed into input_text
-                    system_text = (
-                        "Eres un asistente clínico para profesionales de salud mental. "
-                        "Usa el contexto del paciente y los archivos adjuntos para: "
-                        "1) Historia clínica detallada. 2) Breve resumen de la última sesión. "
-                        "3) Recomendaciones prácticas para la próxima sesión. Responde en español."
-                    )
-                    input_parts.append({"type": "input_text", "text": system_text + "\n\n" + context_text})
-                    resp = client.responses.create(
-                        model=thread.model or 'gpt-5',
-                        input=[{"role": "user", "content": input_parts}],
-                    )
-                    content = getattr(resp, 'output_text', None) or ''
-                    if not content and hasattr(resp, 'output'):
-                        # Fallback parse if SDK shape differs
-                        try:
-                            content = ' '.join([o.get('content', [{}])[0].get('text', {}).get('value', '') for o in resp.output])
-                        except Exception:
-                            content = ''
-                    PatientAIMessage.objects.create(thread=thread, role='system', content=context_text)
-                    PatientAIMessage.objects.create(thread=thread, role='assistant', content=content or '')
-                    generated = content
+                    # Only call if we actually built/updated context this POST
+                    if not info:
+                        file_ids = _collect_attachment_file_ids(client, thread_prof, selected_patient)
+                        input_parts = []
+                        for fid in file_ids:
+                            input_parts.append({"type": "input_file", "file_id": fid})
+                        system_text = (
+                            "Eres un asistente clínico para profesionales de salud mental. "
+                            "Usa el contexto del paciente y los archivos adjuntos para: "
+                            "1) Historia clínica detallada. 2) Breve resumen de la última sesión. "
+                            "3) Recomendaciones prácticas para la próxima sesión. Responde en español."
+                        )
+                        input_parts.append({"type": "input_text", "text": system_text + "\n\n" + (thread.context or '')})
+                        resp = client.responses.create(
+                            model=thread.model or 'gpt-5',
+                            input=[{"role": "user", "content": input_parts}],
+                        )
+                        content = getattr(resp, 'output_text', None) or ''
+                        if not content and hasattr(resp, 'output'):
+                            try:
+                                content = ' '.join([o.get('content', [{}])[0].get('text', {}).get('value', '') for o in resp.output])
+                            except Exception:
+                                content = ''
+                        if content:
+                            PatientAIMessage.objects.create(thread=thread, role='assistant', content=content or '')
+                            generated = content
                 except Exception as e:
                     error = f'Error al invocar OpenAI: {e}'
 
@@ -1408,6 +1433,7 @@ def report_sessions(request):
         'messages': messages_qs,
         'generated': generated,
         'error': error,
+        'info': info,
     })
 
 

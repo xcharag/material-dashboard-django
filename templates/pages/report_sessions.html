@@ -16,6 +16,9 @@
           {% if error %}
           <div class="alert alert-danger">{{ error }}</div>
           {% endif %}
+          {% if info %}
+          <div class="alert alert-info">{{ info }}</div>
+          {% endif %}
           <form method="post" class="row g-2 align-items-end mb-4">
             {% csrf_token %}
             <div class="col-md-4">
@@ -29,6 +32,12 @@
             </div>
             <div class="col-md-3">
               <button class="btn btn-success w-100">Generar/Actualizar Resumen</button>
+            </div>
+            <div class="col-md-2 d-flex align-items-center">
+              <div class="form-check mt-3">
+                <input class="form-check-input" type="checkbox" name="force" value="1" id="forceRegen">
+                <label class="form-check-label" for="forceRegen">Forzar regeneración</label>
+              </div>
             </div>
             <div class="col-md-3">
               <button type="button" class="btn btn-outline-secondary w-100" onclick="return reuploadAttachments(this);" {% if not selected_patient %}disabled{% endif %}>

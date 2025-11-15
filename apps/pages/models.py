@@ -236,6 +236,11 @@ class PatientAIThread(models.Model):
     title = models.CharField(max_length=255, blank=True, default='')
     context = models.TextField(blank=True, default='')  # Aggregated clinical context used as system/basis context
     model = models.CharField(max_length=100, blank=True, default='gpt-4o-mini')
+    # Tracking which data the context covers to avoid unnecessary re-generation
+    context_consult_count = models.IntegerField(default=0)
+    context_note_count = models.IntegerField(default=0)
+    context_attachment_count = models.IntegerField(default=0)
+    context_last_consultation = models.ForeignKey('Consultation', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
