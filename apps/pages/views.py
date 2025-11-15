@@ -1137,7 +1137,11 @@ def consultation_cancel_api(request, consultation_id):
             return JsonResponse({'ok': False, 'message': 'Formato de fecha/hora inválido'}, status=400)
         # Validate not in the past (allow a few minutes tolerance)
         new_start_dt = dt.combine(new_date, new_time)
-        if new_start_dt < timezone.now() - timedelta(minutes=5):
+        tz = timezone.get_current_timezone()
+        if timezone.is_naive(new_start_dt):
+            new_start_dt = timezone.make_aware(new_start_dt, tz)
+        now_aw = timezone.now()
+        if new_start_dt < now_aw - timedelta(minutes=5):
             return JsonResponse({'ok': False, 'message': 'No se puede reprogramar al pasado'}, status=400)
         new_end_dt = new_start_dt + timedelta(minutes=cons.duration or 60)
         # Conflict detection in same consultorio
@@ -1149,6 +1153,8 @@ def consultation_cancel_api(request, consultation_id):
         conflict = False
         for other in base_qs.exclude(id=cons.id):
             o_start = dt.combine(other.date, other.time)
+            if timezone.is_naive(o_start):
+                o_start = timezone.make_aware(o_start, tz)
             o_end = o_start + timedelta(minutes=other.duration or 60)
             if new_start_dt < o_end and o_start < new_end_dt:
                 conflict = True

@@ -87,6 +87,7 @@ class Consultation(models.Model):
         ('attended', 'Atendida'),
         ('completed', 'Terminada'),
         ('no_show', 'No Atendida'),
+        ('cancelled', 'Cancelada'),
     ]
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
 

@@ -148,11 +148,9 @@
             <div class="col-md-3">
               <select name="status" class="form-select">
                 <option value="">Estado</option>
-                {% for code,label in status_choices %}
-                  {% if code != 'pending' %}
-                  <option value="{{ code }}" {% if request.GET.status == code %}selected{% endif %}>{{ label }}</option>
-                  {% endif %}
-                {% endfor %}
+                <option value="attended" {% if request.GET.status == 'attended' %}selected{% endif %}>Atendida</option>
+                <option value="no_show" {% if request.GET.status == 'no_show' %}selected{% endif %}>No Atendida</option>
+                <option value="cancelled" {% if request.GET.status == 'cancelled' %}selected{% endif %}>Cancelada</option>
               </select>
             </div>
             <div class="col-md-2 d-flex">
