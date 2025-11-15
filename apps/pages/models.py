@@ -144,6 +144,8 @@ class ConsultationAttachment(models.Model):
     display_name = models.CharField(max_length=255, blank=True, default='')
     uploaded_at = models.DateTimeField(auto_now_add=True)
     uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='consultation_attachments')
+    # OpenAI Files API id to allow the model to access the attachment
+    openai_file_id = models.CharField(max_length=200, blank=True, null=True)
 
     class Meta:
         ordering = ['-uploaded_at']

@@ -30,6 +30,11 @@
             <div class="col-md-3">
               <button class="btn btn-success w-100">Generar/Actualizar Resumen</button>
             </div>
+            <div class="col-md-3">
+              <button type="button" class="btn btn-outline-secondary w-100" onclick="return reuploadAttachments(this);" {% if not selected_patient %}disabled{% endif %}>
+                Reprocesar Adjuntos
+              </button>
+            </div>
           </form>
 
           {% if selected_patient %}
@@ -40,11 +45,17 @@
                   {% if messages %}
                     {% for m in messages %}
                       {% if m.role == 'assistant' %}
-                        <div class="mb-3 p-2 bg-light rounded small" style="white-space:pre-wrap;">{{ m.content }}</div>
+                        <div class="mb-3 p-2 bg-light rounded small">
+                          <div class="md-content"></div>
+                          <pre class="d-none md-raw">{{ m.content }}</pre>
+                        </div>
                       {% endif %}
                     {% endfor %}
                   {% elif generated %}
-                    <div class="mb-3 p-2 bg-light rounded small" style="white-space:pre-wrap;">{{ generated }}</div>
+                    <div class="mb-3 p-2 bg-light rounded small">
+                      <div class="md-content"></div>
+                      <pre class="d-none md-raw">{{ generated }}</pre>
+                    </div>
                   {% else %}
                     <p class="text-secondary small">Genera el resumen para iniciar.</p>
                   {% endif %}
@@ -53,13 +64,15 @@
               <div class="col-lg-7">
                 <div class="border rounded p-3 h-100 d-flex flex-column">
                   <h6 class="mb-3">Chat con Asistente</h6>
-                  <div id="chatBox" class="flex-grow-1 overflow-auto border rounded p-2 mb-2" style="max-height:400px;">
+                  <div id="chatBox" class="flex-grow-1 overflow-auto p-2 mb-2 chat-box" style="max-height:420px;">
                     {% if messages %}
                       {% for m in messages %}
                         {% if m.role != 'system' %}
-                          <div class="mb-2">
-                            <strong class="text-{% if m.role == 'user' %}primary{% else %}success{% endif %}">{{ m.role|capfirst }}:</strong>
-                            <div class="small" style="white-space:pre-wrap;">{{ m.content }}</div>
+                          <div class="chat-msg {% if m.role == 'user' %}user{% else %}assistant{% endif %}">
+                            <div class="bubble">
+                              <div class="md-content"></div>
+                              <pre class="d-none md-raw">{{ m.content }}</pre>
+                            </div>
                           </div>
                         {% endif %}
                       {% endfor %}
@@ -84,7 +97,33 @@
 {% endblock content %}
 
 {% block extra_js %}
+<style>
+  .chat-box { background: #f8f9fa; border-radius: .5rem; }
+  .chat-msg { display: flex; margin-bottom: .5rem; }
+  .chat-msg.user { justify-content: flex-end; }
+  .chat-msg.assistant { justify-content: flex-start; }
+  .chat-msg .bubble { max-width: 80%; padding: .5rem .75rem; border-radius: .75rem; font-size: .9rem; }
+  .chat-msg.user .bubble { background: #e7f1ff; color: #0d6efd; border: 1px solid #cfe2ff; }
+  .chat-msg.assistant .bubble { background: #e8f5e9; color: #198754; border: 1px solid #d1e7dd; }
+  .md-content h1,.md-content h2,.md-content h3{font-size:1rem;margin:.25rem 0}
+  .md-content p{margin:.25rem 0}
+  .md-content ul{margin:.25rem 0 .25rem 1rem}
+  .md-content code{background:#f1f3f5;padding:0 .25rem;border-radius:.25rem}
+  .md-content pre{background:#222;color:#f5f5f5;padding:.5rem;border-radius:.5rem;overflow:auto}
+  .md-content table{width:100%;font-size:.85rem}
+  .md-content th, .md-content td{border:1px solid #dee2e6;padding:.25rem .4rem}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
+  function renderMarkdownIn(container){
+    const blocks = (container || document).querySelectorAll('.md-content');
+    blocks.forEach(function(el){
+      const rawEl = el.parentElement.querySelector('.md-raw') || el.nextElementSibling;
+      if(!rawEl) return;
+      const raw = rawEl.textContent || '';
+      try { el.innerHTML = marked.parse(raw); } catch(e) { el.textContent = raw; }
+    });
+  }
   async function sendChat(e){
     e.preventDefault();
     const form = document.getElementById('chatForm');
@@ -94,9 +133,11 @@
     if(!msg) return false;
     // Append user msg
     const u = document.createElement('div');
-    u.className = 'mb-2';
-    u.innerHTML = '<strong class="text-primary">Usuario:</strong> <div class="small" style="white-space:pre-wrap;"></div>';
-    u.querySelector('div').textContent = msg;
+    u.className = 'chat-msg user';
+    const ub = document.createElement('div');
+    ub.className = 'bubble';
+    ub.innerHTML = marked.parse(msg);
+    u.appendChild(ub);
     box.appendChild(u);
     form.message.value = '';
     try{
@@ -104,9 +145,11 @@
       const json = await res.json();
       if(json.ok){
         const a = document.createElement('div');
-        a.className = 'mb-2';
-        a.innerHTML = '<strong class="text-success">Asistente:</strong> <div class="small" style="white-space:pre-wrap;"></div>';
-        a.querySelector('div').textContent = json.answer || '';
+        a.className = 'chat-msg assistant';
+        const ab = document.createElement('div');
+        ab.className = 'bubble';
+        ab.innerHTML = marked.parse(json.answer || '');
+        a.appendChild(ab);
         box.appendChild(a);
         box.scrollTop = box.scrollHeight;
       }else{
@@ -116,5 +159,30 @@
     return false;
   }
   function getCookie(name){const v = `; ${document.cookie}`.split(`; ${name}=`); if(v.length===2) return v.pop().split(';').shift();}
+  // Render any server-side markdown blocks on load
+  document.addEventListener('DOMContentLoaded', function(){
+    renderMarkdownIn(document);
+  });
+
+  async function reuploadAttachments(btn){
+    if(!btn) return false;
+    const sel = document.querySelector('select[name="patient"]');
+    const pid = sel && sel.value;
+    if(!pid){ alert('Selecciona un paciente primero'); return false; }
+    btn.disabled = true; const old = btn.textContent; btn.textContent = 'Reprocesando...';
+    try{
+      const fd = new FormData();
+      fd.set('patient', pid);
+      const res = await fetch('{% url "report_sessions_reupload" %}', {method:'POST', credentials:'same-origin', headers:{'X-CSRFToken': getCookie('csrftoken')}, body: fd});
+      const json = await res.json();
+      if(json.ok){
+        alert(`Adjuntos subidos: ${json.uploaded}/${json.total}`);
+      }else{
+        alert(json.error || 'Error al reprocesar');
+      }
+    }catch(e){ alert('Error de red'); }
+    finally{ btn.disabled = false; btn.textContent = old; }
+    return false;
+  }
 </script>
 {% endblock extra_js %}

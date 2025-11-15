@@ -18,6 +18,7 @@ from datetime import time as dtime
 from django.utils import timezone
 import os
 from openai import OpenAI
+from django.conf import settings
 
 # Create your views here.
 
@@ -1229,6 +1230,80 @@ def _openai_client():
         return None
 
 
+def _ensure_openai_file(client: OpenAI, attachment: ConsultationAttachment) -> str:
+    """Upload file to OpenAI Files API if missing, return file_id."""
+    if attachment.openai_file_id:
+        return attachment.openai_file_id
+    try:
+        # Use absolute path from FileField
+        local_path = attachment.file.path
+        with open(local_path, 'rb') as f:
+            fobj = client.files.create(file=f, purpose='user_data')
+        file_id = getattr(fobj, 'id', None) or (fobj.get('id') if isinstance(fobj, dict) else None)
+        if file_id:
+            attachment.openai_file_id = file_id
+            attachment.save(update_fields=['openai_file_id'])
+        return file_id
+    except Exception:
+        return None
+
+
+def _collect_attachment_file_ids(client: OpenAI, professional: Professional, patient: Patient):
+    """Return list of OpenAI file_ids for this patient's attachments, uploading if needed."""
+    file_ids = []
+    cons_qs = Consultation.objects.filter(professional=professional, patient=patient)
+    atts = ConsultationAttachment.objects.filter(consultation__in=cons_qs)
+    for att in atts:
+        fid = _ensure_openai_file(client, att)
+        if fid:
+            file_ids.append(fid)
+    return file_ids
+
+
+@login_required
+def report_sessions_reupload(request):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'Método no permitido'}, status=405)
+    prof = _get_professional(request.user)
+    if not (request.user.is_staff or prof):
+        return JsonResponse({'ok': False, 'error': 'No autorizado'}, status=403)
+    patient_id = request.POST.get('patient')
+    if not patient_id:
+        return JsonResponse({'ok': False, 'error': 'Falta parámetro patient'}, status=400)
+    patient = Patient.objects.filter(id=patient_id).first()
+    if not patient:
+        return JsonResponse({'ok': False, 'error': 'Paciente no encontrado'}, status=404)
+    # Access control: staff or assigned professional
+    if not request.user.is_staff:
+        if not patient.professional_id or patient.professional_id != prof.id:
+            return JsonResponse({'ok': False, 'error': 'No autorizado'}, status=403)
+
+    client = _openai_client()
+    if not client:
+        return JsonResponse({'ok': False, 'error': 'Falta OPENAI_API_KEY'}, status=400)
+
+    cons_qs = Consultation.objects.filter(patient=patient)
+    if not request.user.is_staff and prof:
+        cons_qs = cons_qs.filter(professional=prof)
+    atts = list(ConsultationAttachment.objects.filter(consultation__in=cons_qs))
+    uploaded = 0
+    errors = []
+    for att in atts:
+        try:
+            # Force re-upload: ignore existing id, upload anew and overwrite
+            local_path = att.file.path
+            with open(local_path, 'rb') as f:
+                fobj = client.files.create(file=f, purpose='user_data')
+            file_id = getattr(fobj, 'id', None) or (fobj.get('id') if isinstance(fobj, dict) else None)
+            if file_id:
+                att.openai_file_id = file_id
+                att.save(update_fields=['openai_file_id'])
+                uploaded += 1
+        except Exception as e:
+            errors.append(f"{att.id}: {e}")
+    return JsonResponse({'ok': True, 'uploaded': uploaded, 'total': len(atts), 'errors': errors})
+
+
 def _ai_summary_prompt(context: str) -> list:
     system = (
         "Eres un asistente clínico para profesionales de salud mental. "
@@ -1269,10 +1344,14 @@ def report_sessions(request):
             error = 'El paciente no está asignado a un profesional. Asígnalo primero para generar el reporte.'
         else:
             # Create or reuse thread and generate initial summary
-            thread, _ = PatientAIThread.objects.get_or_create(
+            thread, created = PatientAIThread.objects.get_or_create(
                 professional=thread_prof,
                 patient=selected_patient,
             )
+            # Default model to gpt-5 if empty/legacy
+            if created or not thread.model or thread.model == 'gpt-4o-mini':
+                thread.model = 'gpt-5'
+                thread.save(update_fields=['model'])
             # Build context
             context_text = _build_patient_context(thread_prof, selected_patient)
             thread.context = context_text
@@ -1283,13 +1362,30 @@ def report_sessions(request):
                 error = 'Configura OPENAI_API_KEY para generar el resumen.'
             else:
                 try:
-                    msgs = _ai_summary_prompt(context_text)
-                    resp = client.chat.completions.create(
-                        model=thread.model or 'gpt-4o-mini',
-                        messages=msgs,
-                        temperature=0.2,
+                    # Upload attachments and prepare input parts (files + instructions + context)
+                    file_ids = _collect_attachment_file_ids(client, thread_prof, selected_patient)
+                    input_parts = []
+                    for fid in file_ids:
+                        input_parts.append({"type": "input_file", "file_id": fid})
+                    # System-style instruction packed into input_text
+                    system_text = (
+                        "Eres un asistente clínico para profesionales de salud mental. "
+                        "Usa el contexto del paciente y los archivos adjuntos para: "
+                        "1) Historia clínica detallada. 2) Breve resumen de la última sesión. "
+                        "3) Recomendaciones prácticas para la próxima sesión. Responde en español."
                     )
-                    content = resp.choices[0].message.content if resp and resp.choices else ''
+                    input_parts.append({"type": "input_text", "text": system_text + "\n\n" + context_text})
+                    resp = client.responses.create(
+                        model=thread.model or 'gpt-5',
+                        input=[{"role": "user", "content": input_parts}],
+                    )
+                    content = getattr(resp, 'output_text', None) or ''
+                    if not content and hasattr(resp, 'output'):
+                        # Fallback parse if SDK shape differs
+                        try:
+                            content = ' '.join([o.get('content', [{}])[0].get('text', {}).get('value', '') for o in resp.output])
+                        except Exception:
+                            content = ''
                     PatientAIMessage.objects.create(thread=thread, role='system', content=context_text)
                     PatientAIMessage.objects.create(thread=thread, role='assistant', content=content or '')
                     generated = content
@@ -1334,21 +1430,38 @@ def report_sessions_chat(request):
     if not client:
         return JsonResponse({'ok': False, 'error': 'Falta OPENAI_API_KEY'}, status=400)
 
-    # Build messages: include system with thread.context, plus recent history, then the user question
+    # Prepare input for Responses API: include files, context, short history, and the new question
     history = list(thread.messages.order_by('-created_at')[:10])
     history.reverse()
-    msgs = [{"role": "system", "content": (
-        "Eres un asistente que solo responde sobre el paciente seleccionado. "
-        "Usa exclusivamente este contexto clínico y la conversación previa.\n\n" + (thread.context or '')
-    )}]
+    try:
+        file_ids = _collect_attachment_file_ids(client, thread.professional, thread.patient)
+    except Exception:
+        file_ids = []
+    input_parts = []
+    for fid in file_ids:
+        input_parts.append({"type": "input_file", "file_id": fid})
+    # Base instruction + context
+    base_text = (
+        "Eres un asistente clínico y debes responder solo sobre este paciente. "
+        "Usa exclusivamente el contexto y adjuntos.\n\n" + (thread.context or '')
+    )
+    input_parts.append({"type": "input_text", "text": base_text})
+    # Short conversation transcript as text blocks
     for m in history:
-        msgs.append({"role": m.role, "content": m.content})
-    msgs.append({"role": "user", "content": question})
+        role = 'Usuario' if m.role == 'user' else ('Asistente' if m.role == 'assistant' else 'Sistema')
+        input_parts.append({"type": "input_text", "text": f"{role}:\n{m.content}"})
+    # The new question
+    input_parts.append({"type": "input_text", "text": f"Usuario:\n{question}"})
 
     try:
         PatientAIMessage.objects.create(thread=thread, role='user', content=question)
-        resp = client.chat.completions.create(model=thread.model or 'gpt-4o-mini', messages=msgs, temperature=0.2)
-        answer = resp.choices[0].message.content if resp and resp.choices else ''
+        resp = client.responses.create(model=thread.model or 'gpt-5', input=[{"role": "user", "content": input_parts}])
+        answer = getattr(resp, 'output_text', None) or ''
+        if not answer and hasattr(resp, 'output'):
+            try:
+                answer = ' '.join([o.get('content', [{}])[0].get('text', {}).get('value', '') for o in resp.output])
+            except Exception:
+                answer = ''
         PatientAIMessage.objects.create(thread=thread, role='assistant', content=answer or '')
         return JsonResponse({'ok': True, 'answer': answer})
     except Exception as e:

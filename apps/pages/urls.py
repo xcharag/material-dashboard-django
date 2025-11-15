@@ -42,6 +42,7 @@ urlpatterns = [
     # AI Report & Chat
     path('report/sessions/', views.report_sessions, name='report_sessions'),
     path('report/sessions/chat/', views.report_sessions_chat, name='report_sessions_chat'),
+    path('report/sessions/reupload/', views.report_sessions_reupload, name='report_sessions_reupload'),
     # History manager
     path('patients/<int:patient_id>/history-manager/', views.patient_history_manager, name='patient_history_manager'),
 ]
