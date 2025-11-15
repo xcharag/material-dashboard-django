@@ -48,32 +48,29 @@
 
           {% if selected_patient %}
             <div class="row g-3">
-              <div class="col-lg-5">
+              <div class="col-lg-3">
                 <div class="border rounded p-3 h-100">
                   <h6 class="mb-3">Resumen IA</h6>
-                  {% if messages %}
-                    {% for m in messages %}
-                      {% if m.role == 'assistant' %}
-                        <div class="mb-3 p-2 bg-light rounded small">
-                          <div class="md-content"></div>
-                          <pre class="d-none md-raw">{{ m.content }}</pre>
-                        </div>
-                      {% endif %}
-                    {% endfor %}
-                  {% elif generated %}
-                    <div class="mb-3 p-2 bg-light rounded small">
-                      <div class="md-content"></div>
-                      <pre class="d-none md-raw">{{ generated }}</pre>
-                    </div>
-                  {% else %}
-                    <p class="text-secondary small">Genera el resumen para iniciar.</p>
-                  {% endif %}
+                  <div class="mb-3">
+                    {% if thread and thread.context_last_consultation %}
+                      <span class="badge bg-success">Contexto hasta: {{ thread.context_last_consultation.date|date:'d/m/Y' }}</span>
+                      <div class="text-xs text-secondary mt-2">
+                        Consultas: {{ thread.context_consult_count|default:0 }}<br/>
+                        Notas: {{ thread.context_note_count|default:0 }}<br/>
+                        Adjuntos: {{ thread.context_attachment_count|default:0 }}
+                      </div>
+                    {% else %}
+                      <span class="badge bg-secondary">Sin resumen generado</span>
+                    {% endif %}
+                  </div>
+                  <a href="{% url 'report_sessions_pdf' %}?{% if thread %}thread={{ thread.id }}{% elif selected_patient %}patient={{ selected_patient.id }}{% endif %}"
+                     class="btn btn-outline-success w-100" {% if not thread %}aria-disabled="true"{% endif %}>Descargar PDF</a>
                 </div>
               </div>
-              <div class="col-lg-7">
+              <div class="col-lg-9">
                 <div class="border rounded p-3 h-100 d-flex flex-column">
                   <h6 class="mb-3">Chat con Asistente</h6>
-                  <div id="chatBox" class="flex-grow-1 overflow-auto p-2 mb-2 chat-box" style="max-height:420px;">
+                  <div id="chatBox" class="flex-grow-1 overflow-auto p-2 mb-2 chat-box" style="max-height:70vh; min-height:400px;">
                     {% if messages %}
                       {% for m in messages %}
                         {% if m.role != 'system' %}

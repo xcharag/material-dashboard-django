@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Resumen de {{ patient.first_name }} {{ patient.last_name }}</title>
+  <style>
+    body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 12px; color: #222; }
+    h1,h2,h3 { margin: 8px 0; }
+    .header { border-bottom: 1px solid #ccc; margin-bottom: 12px; padding-bottom: 6px; }
+    .meta { font-size: 11px; color: #555; }
+    .content { margin-top: 10px; }
+    ul { margin: 6px 0 6px 18px; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    th, td { border: 1px solid #ccc; padding: 4px 6px; }
+    code { background: #f5f5f5; padding: 0 3px; }
+    pre { background: #f0f0f0; padding: 6px; white-space: pre-wrap; word-wrap: break-word; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>Resumen Sesiones</h2>
+    <div class="meta">
+      Paciente: {{ patient.first_name }} {{ patient.last_name }}<br/>
+      Profesional: {{ professional.first_name }} {{ professional.last_name }}<br/>
+      Generado: {% now "d/m/Y H:i" %}
+    </div>
+  </div>
+  <div class="content">
+    {{ content_html|safe }}
+  </div>
+</body>
+</html>

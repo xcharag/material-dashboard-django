@@ -11,7 +11,10 @@ from django.contrib import messages
 from .forms import CustomLoginForm, UsernameRecoveryForm
 from .forms import ProfessionalProfileForm, ProfessionalContactForm
 from .forms import AvailabilityExceptionForm
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
+from django.template.loader import render_to_string
+import io
+import markdown as md
 from datetime import datetime as dt, date as ddate
 from .utils.availability import generate_slots
 from datetime import time as dtime
@@ -1435,6 +1438,66 @@ def report_sessions(request):
         'error': error,
         'info': info,
     })
+
+
+@login_required
+def report_sessions_pdf(request):
+    # Resolve professional and thread/patient
+    prof = _get_professional(request.user)
+    if not (request.user.is_staff or prof):
+        messages.error(request, 'No autorizado.')
+        return redirect('index')
+    thread_id = request.GET.get('thread') or request.POST.get('thread')
+    patient_id = request.GET.get('patient') or request.POST.get('patient')
+    thread = None
+    if thread_id:
+        thread = PatientAIThread.objects.select_related('professional', 'patient').filter(id=thread_id).first()
+        if not thread:
+            messages.error(request, 'Hilo no encontrado')
+            return redirect('report_sessions')
+        if not (request.user.is_staff or (prof and prof.id == thread.professional_id)):
+            messages.error(request, 'No autorizado')
+            return redirect('report_sessions')
+    elif patient_id:
+        patient = Patient.objects.filter(id=patient_id).first()
+        if not patient:
+            messages.error(request, 'Paciente no encontrado')
+            return redirect('report_sessions')
+        view_prof = prof or patient.professional
+        if not view_prof:
+            messages.error(request, 'No autorizado')
+            return redirect('report_sessions')
+        thread = PatientAIThread.objects.select_related('professional', 'patient').filter(professional=view_prof, patient=patient).first()
+        if not thread:
+            messages.error(request, 'No hay resumen para este paciente aún')
+            return redirect('report_sessions')
+    else:
+        messages.error(request, 'Parámetros inválidos')
+        return redirect('report_sessions')
+
+    # Pick latest assistant message as the summary
+    last_summary = thread.messages.filter(role='assistant').order_by('-created_at').first()
+    content_md = last_summary.content if last_summary else 'No hay resumen disponible.'
+    content_html = md.markdown(content_md)
+
+    html = render_to_string('pages/report_sessions_pdf.html', {
+        'patient': thread.patient,
+        'professional': thread.professional,
+        'content_html': content_html,
+        'thread': thread,
+    })
+    try:
+        from xhtml2pdf import pisa
+        result = io.BytesIO()
+        pisa.CreatePDF(src=html, dest=result, encoding='utf-8')
+        pdf_data = result.getvalue()
+        filename = f"Resumen_{thread.patient.first_name}_{thread.patient.last_name}.pdf"
+        resp = HttpResponse(pdf_data, content_type='application/pdf')
+        resp['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return resp
+    except Exception:
+        # Fallback: return HTML if PDF generation fails
+        return HttpResponse(html)
 
 
 @login_required
