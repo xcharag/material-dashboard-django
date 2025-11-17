@@ -261,6 +261,7 @@ class PatientAIMessage(models.Model):
     thread = models.ForeignKey(PatientAIThread, on_delete=models.CASCADE, related_name='messages')
     role = models.CharField(max_length=16, choices=ROLE_CHOICES)
     content = models.TextField()
+    is_summary = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

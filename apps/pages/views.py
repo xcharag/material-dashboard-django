@@ -1428,7 +1428,7 @@ def report_sessions(request):
                             except Exception:
                                 content = ''
                         if content:
-                            PatientAIMessage.objects.create(thread=thread, role='assistant', content=content or '')
+                            PatientAIMessage.objects.create(thread=thread, role='assistant', content=content or '', is_summary=True)
                             generated = content
                 except Exception as e:
                     error = f'Error al invocar OpenAI: {e}'
@@ -1488,8 +1488,10 @@ def report_sessions_pdf(request):
         messages.error(request, 'Parámetros inválidos')
         return redirect('report_sessions')
 
-    # Pick latest assistant message as the summary
-    last_summary = thread.messages.filter(role='assistant').order_by('-created_at').first()
+    # Pick latest assistant message marked as a formal summary; fallback to any assistant
+    last_summary = thread.messages.filter(role='assistant', is_summary=True).order_by('-created_at').first()
+    if not last_summary:
+        last_summary = thread.messages.filter(role='assistant').order_by('-created_at').first()
     content_md = last_summary.content if last_summary else 'No hay resumen disponible.'
     content_html = md.markdown(content_md)
 
