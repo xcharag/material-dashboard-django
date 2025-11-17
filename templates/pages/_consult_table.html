@@ -33,7 +33,11 @@
           <span class="badge bg-gradient-{% if consult.status == 'pending' %}warning{% elif consult.status == 'attended' %}info{% elif consult.status == 'completed' %}secondary{% else %}danger{% endif %}">{{ consult.get_status_display }}</span>
         </td>
         <td class="align-middle">
-          <a href="{% url 'start_session' consult.id %}" class="btn btn-sm bg-gradient-success mb-1">Iniciar</a>
+          {% if consult.status == 'pending' %}
+            <a href="{% url 'start_session' consult.id %}" class="btn btn-sm bg-gradient-success mb-1">Iniciar</a>
+          {% else %}
+            <button type="button" class="btn btn-sm btn-secondary mb-1" disabled title="Solo disponible en estado Pendiente">Iniciar</button>
+          {% endif %}
         </td>
       </tr>
       {% empty %}

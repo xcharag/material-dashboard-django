@@ -50,7 +50,13 @@
                   <td>{{ c.consultory }}</td>
                   <td><span class="badge bg-gradient-{% if c.status == 'pending' %}warning{% elif c.status == 'attended' %}info{% elif c.status == 'completed' %}secondary{% else %}danger{% endif %}">{{ c.get_status_display }}</span></td>
                   <td>Bs {{ c.paid_amount|default:'0.00' }}</td>
-                  <td><a href="{% url 'start_session' c.id %}" class="btn btn-sm btn-outline-success">Abrir</a></td>
+                  <td>
+                    {% if c.status == 'pending' %}
+                      <a href="{% url 'start_session' c.id %}" class="btn btn-sm btn-outline-success">Abrir</a>
+                    {% else %}
+                      <button type="button" class="btn btn-sm btn-secondary" disabled title="Solo disponible en estado Pendiente">Abrir</button>
+                    {% endif %}
+                  </td>
                 </tr>
                 {% empty %}
                 <tr><td colspan="6" class="text-secondary">Sin consultas</td></tr>

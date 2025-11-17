@@ -517,6 +517,11 @@ def start_session(request, consultation_id):
         messages.error(request, 'No tienes permiso para acceder a esta consulta.')
         return redirect('consult')
 
+    # Only allow starting sessions when the consultation is pending
+    if consultation.status != 'pending':
+        messages.error(request, 'Solo puedes iniciar consultas con estado Pendiente.')
+        return redirect('consult')
+
     from .forms import NoteForm, AttachmentForm, NoteEditForm, AttachmentRenameForm  # local import to avoid circular in some reload cases
 
     note_form = NoteForm(prefix='note')
@@ -698,11 +703,19 @@ def profile(request):
         elif action == 'add_exception' and professional:
             exception_form = AvailabilityExceptionForm(request.POST)
             if exception_form.is_valid():
-                ex = exception_form.save(commit=False)
-                ex.professional = professional
-                ex.save()
-                messages.success(request, 'Excepción agregada.')
-                return redirect('profile')
+                try:
+                    ex = exception_form.save(commit=False)
+                    ex.professional = professional
+                    ex.save()
+                    messages.success(request, 'Excepción agregada.')
+                    return redirect('profile')
+                except IntegrityError:
+                    messages.error(request, 'Ya existe una excepción para esa fecha.')
+            else:
+                # Surface validation errors in messages for clarity
+                for field, errs in exception_form.errors.items():
+                    for e in errs:
+                        messages.error(request, f"Error en {field or 'formulario'}: {e}")
         elif action == 'delete_exception' and professional:
             ex_id = request.POST.get('exception_id')
             from .models import AvailabilityException

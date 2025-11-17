@@ -192,18 +192,37 @@
                   <input type="hidden" name="action" value="add_exception" />
                   <div class="col-md-3">
                     {{ exception_form.date }}
+                    {% if exception_form.date.errors %}
+                      <div class="text-danger small">{{ exception_form.date.errors|join:', ' }}</div>
+                    {% endif %}
                   </div>
                   <div class="col-md-3">
                     {{ exception_form.start_time }}
+                    {% if exception_form.start_time.errors %}
+                      <div class="text-danger small">{{ exception_form.start_time.errors|join:', ' }}</div>
+                    {% endif %}
                   </div>
                   <div class="col-md-3">
                     {{ exception_form.end_time }}
+                    {% if exception_form.end_time.errors %}
+                      <div class="text-danger small">{{ exception_form.end_time.errors|join:', ' }}</div>
+                    {% endif %}
                   </div>
                   <div class="col-md-2 d-flex align-items-center">
                     <div class="form-check mt-1">
                       {{ exception_form.is_closed }} <label class="form-check-label">Cerrado</label>
+                      {% if exception_form.is_closed.errors %}
+                        <div class="text-danger small">{{ exception_form.is_closed.errors|join:', ' }}</div>
+                      {% endif %}
                     </div>
                   </div>
+                  {% if exception_form.non_field_errors %}
+                    <div class="col-12">
+                      <div class="alert alert-danger py-2 mb-0">
+                        {{ exception_form.non_field_errors|join:' ' }}
+                      </div>
+                    </div>
+                  {% endif %}
                   <div class="col-md-1">
                     <button class="btn btn-sm btn-success w-100">Agregar</button>
                   </div>
