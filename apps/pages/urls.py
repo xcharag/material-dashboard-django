@@ -26,6 +26,7 @@ urlpatterns = [
     path('professionals/', views.professionals, name='professionals'),
     path('consult/', views.consult, name='consult'),
     path('start-session/<int:consultation_id>/', views.start_session, name='start_session'),
+    path('view-session/<int:consultation_id>/', views.view_session, name='view_session'),
     path('end-session/<int:consultation_id>/', views.end_session, name='end_session'),
     path('profile/', views.profile, name='profile'),
     path('api/available-slots/', views.available_slots_api, name='available_slots_api'),

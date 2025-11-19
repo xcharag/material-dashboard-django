@@ -623,6 +623,118 @@ def start_session(request, consultation_id):
 
 
 @login_required
+def view_session(request, consultation_id):
+    """View a consultation's notes and attachments without changing its status.
+    Allows adding notes/attachments, editing and deleting (same auth as start_session)."""
+    consultation = get_object_or_404(Consultation, id=consultation_id)
+
+    # Authorization: allow if admin or assigned professional
+    is_admin = request.user.is_staff
+    try:
+        user_professional = Professional.objects.get(user=request.user)
+    except Professional.DoesNotExist:
+        user_professional = None
+    if not is_admin and (not user_professional or user_professional != consultation.professional):
+        messages.error(request, 'No tienes permiso para acceder a esta consulta.')
+        return redirect('consult')
+
+    from .forms import NoteForm, AttachmentForm, NoteEditForm, AttachmentRenameForm
+
+    note_form = NoteForm(prefix='note')
+    attachment_form = AttachmentForm(prefix='attach')
+    note_edit_form = None
+    attachment_rename_form = None
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'add_note':
+            note_form = NoteForm(request.POST, prefix='note')
+            if note_form.is_valid():
+                note = note_form.save(commit=False)
+                note.consultation = consultation
+                note.created_by = request.user
+                note.save()
+                messages.success(request, 'Nota agregada correctamente.')
+                return redirect('view_session', consultation_id=consultation.id)
+        elif action == 'edit_note':
+            note_id = request.POST.get('note_id')
+            note = get_object_or_404(ConsultationNote, id=note_id, consultation=consultation)
+            if not is_admin and note.created_by != request.user:
+                messages.error(request, 'No puedes editar esta nota.')
+                return redirect('view_session', consultation_id=consultation.id)
+            note_edit_form = NoteEditForm(request.POST, instance=note, prefix='editnote')
+            if note_edit_form.is_valid():
+                note_edit_form.save()
+                messages.success(request, 'Nota actualizada correctamente.')
+                return redirect('view_session', consultation_id=consultation.id)
+        elif action == 'delete_note':
+            note_id = request.POST.get('note_id')
+            note = get_object_or_404(ConsultationNote, id=note_id, consultation=consultation)
+            if not is_admin and note.created_by != request.user:
+                messages.error(request, 'No puedes eliminar esta nota.')
+                return redirect('view_session', consultation_id=consultation.id)
+            note.delete()
+            messages.success(request, 'Nota eliminada correctamente.')
+            return redirect('view_session', consultation_id=consultation.id)
+        elif action == 'add_attachment':
+            attachment_form = AttachmentForm(request.POST, request.FILES, prefix='attach')
+            if attachment_form.is_valid():
+                attachment = attachment_form.save(commit=False)
+                attachment.consultation = consultation
+                attachment.uploaded_by = request.user
+                attachment.save()
+                messages.success(request, 'Documento agregado correctamente.')
+                return redirect('view_session', consultation_id=consultation.id)
+        elif action == 'edit_attachment':
+            att_id = request.POST.get('attachment_id')
+            att = get_object_or_404(ConsultationAttachment, id=att_id, consultation=consultation)
+            if not is_admin and att.uploaded_by != request.user:
+                messages.error(request, 'No puedes editar este adjunto.')
+                return redirect('view_session', consultation_id=consultation.id)
+            attachment_rename_form = AttachmentRenameForm(request.POST, instance=att, prefix='rename')
+            if attachment_rename_form.is_valid():
+                attachment_rename_form.save()
+                messages.success(request, 'Adjunto actualizado correctamente.')
+                return redirect('view_session', consultation_id=consultation.id)
+        elif action == 'delete_attachment':
+            att_id = request.POST.get('attachment_id')
+            att = get_object_or_404(ConsultationAttachment, id=att_id, consultation=consultation)
+            if not is_admin and att.uploaded_by != request.user:
+                messages.error(request, 'No puedes eliminar este adjunto.')
+                return redirect('view_session', consultation_id=consultation.id)
+            storage = att.file.storage
+            name = att.file.name
+            att.delete()
+            try:
+                storage.delete(name)
+            except Exception:
+                pass
+            messages.success(request, 'Adjunto eliminado correctamente.')
+            return redirect('view_session', consultation_id=consultation.id)
+
+    # DO NOT change the consultation status in view mode
+
+    notes = consultation.session_notes.all()
+    attachments = consultation.attachments.all()
+
+    grouped_attachments = {}
+    for att in attachments:
+        grouped_attachments.setdefault(att.file_type, []).append(att)
+
+    return render(request, 'pages/consult_session.html', {
+        'segment': 'consult',
+        'consultation': consultation,
+        'note_form': note_form,
+        'attachment_form': attachment_form,
+        'note_edit_form': note_edit_form,
+        'attachment_rename_form': attachment_rename_form,
+        'notes': notes,
+        'grouped_attachments': grouped_attachments,
+        'view_mode': True,
+    })
+
+
+@login_required
 def end_session(request, consultation_id):
     consultation = get_object_or_404(Consultation, id=consultation_id)
 

@@ -38,6 +38,7 @@
           {% else %}
             <button type="button" class="btn btn-sm btn-secondary mb-1" disabled title="Solo disponible en estado Pendiente">Iniciar</button>
           {% endif %}
+          <a href="{% url 'view_session' consult.id %}" class="btn btn-sm btn-outline-primary ms-1 mb-1">Ver</a>
         </td>
       </tr>
       {% empty %}
