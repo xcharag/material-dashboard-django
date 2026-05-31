@@ -227,11 +227,18 @@ def professionals(request):
         role = request.POST.get('role')
         email = request.POST.get('email')
         phone = request.POST.get('phone')
-        specialty = request.POST.get('specialty')
+        specialty = request.POST.get('specialty')  # legacy, unused
+        specialty_ids = request.POST.getlist('specialties')
+        ci = request.POST.get('ci', '').strip()
 
         # User account data
         username = request.POST.get('username')
-        password = request.POST.get('password')
+        password = ci  # CI is used as initial password
+
+        # Validate CI
+        if not ci:
+            messages.error(request, 'El número de documento (CI) es obligatorio.')
+            return redirect('professionals')
 
         # Validate that username is not already taken
         if User.objects.filter(username=username).exists():
@@ -254,15 +261,18 @@ def professionals(request):
             )
 
             # Create professional linked to user
-            Professional.objects.create(
+            prof = Professional.objects.create(
                 user=user,
                 first_name=first_name,
                 last_name=last_name,
                 role=role,
                 email=email,
                 phone=phone,
-                specialty=specialty
+                identification_number=ci,
+                identification_type='ci',
             )
+            if specialty_ids:
+                prof.specialties.set(Specialty.objects.filter(id__in=specialty_ids))
             messages.success(request, 'Profesional agregado con exito!')
             return redirect('professionals')
         
@@ -303,14 +313,19 @@ def edit_professional(request, professional_id):
     professional = get_object_or_404(Professional, id=professional_id)
 
     if request.method == 'POST':
-        professional.first_name = request.POST.get('first_name', professional.first_name)
-        professional.last_name  = request.POST.get('last_name',  professional.last_name)
-        professional.role       = request.POST.get('role',       professional.role)
-        professional.specialty  = request.POST.get('specialty',  professional.specialty)
-        professional.email      = request.POST.get('email',      professional.email)
-        professional.phone      = request.POST.get('phone',      professional.phone)
-        professional.biography  = request.POST.get('biography',  professional.biography)
+        professional.first_name           = request.POST.get('first_name', professional.first_name)
+        professional.last_name            = request.POST.get('last_name',  professional.last_name)
+        professional.role                 = request.POST.get('role',       professional.role)
+        professional.email                = request.POST.get('email',      professional.email)
+        professional.phone                = request.POST.get('phone',      professional.phone)
+        professional.biography            = request.POST.get('biography',  professional.biography)
+        ci = request.POST.get('ci', '').strip()
+        if ci:
+            professional.identification_number = ci
+            professional.identification_type   = 'ci'
         professional.save()
+        specialty_ids = request.POST.getlist('specialties')
+        professional.specialties.set(Specialty.objects.filter(id__in=specialty_ids))
 
         if professional.user:
             professional.user.first_name = professional.first_name
@@ -325,6 +340,18 @@ def edit_professional(request, professional_id):
     return render(request, 'pages/edit_professional.html', {
         'professional': professional,
         'segment': 'profesional',
+        'breadcrumb_child': f"{professional.first_name} {professional.last_name}",
+        'specialties': Specialty.objects.filter(is_active=True).order_by('name'),
+    })
+
+
+@login_required
+@user_passes_test(is_admin)
+def view_professional(request, professional_id):
+    professional = get_object_or_404(Professional, id=professional_id)
+    return render(request, 'pages/view_professional.html', {
+        'professional': professional,
+        'segment': 'professionals',
         'breadcrumb_child': f"{professional.first_name} {professional.last_name}",
         'specialties': Specialty.objects.filter(is_active=True).order_by('name'),
     })

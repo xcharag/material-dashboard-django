@@ -53,7 +53,8 @@ class Professional(models.Model):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
     email = models.EmailField(blank=True, null=True)
     phone = models.CharField(max_length=20, blank=True, null=True)
-    specialty = models.CharField(max_length=100, blank=True, null=True)
+    specialty = models.CharField(max_length=100, blank=True, null=True)  # legacy single-value, kept for migration
+    specialties = models.ManyToManyField('Specialty', blank=True, related_name='professionals')
     created_at = models.DateTimeField(auto_now_add=True)
     # Extended profile fields
     profile_picture = models.ImageField(upload_to='profiles/', blank=True, null=True)

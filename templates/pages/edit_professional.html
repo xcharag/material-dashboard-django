@@ -4,6 +4,7 @@
 {% block title %} {{ professional.first_name }} {{ professional.last_name }} – Perfil {% endblock %}
 
 {% block extrastyle %}
+<link rel="stylesheet" href="{% static 'css/custom-combo.css' %}">
 <style>
   .profile-hero {
     border-radius: 1rem;
@@ -69,6 +70,12 @@
             {{ professional.specialty }}
           </span>
           {% endif %}
+          {% for s in professional.specialties.all %}
+          <span class="badge text-white" style="background:rgba(255,255,255,.2);font-size:.75rem;">
+            <i class="material-symbols-rounded me-1" style="font-size:.8rem;vertical-align:middle">school</i>
+            {{ s.name }}
+          </span>
+          {% endfor %}
           {% if professional.email %}
           <span class="badge text-white" style="background:rgba(255,255,255,.2);font-size:.75rem;">
             <i class="material-symbols-rounded me-1" style="font-size:.8rem;vertical-align:middle">email</i>
@@ -128,23 +135,50 @@
                            value="{{ professional.last_name }}" required>
                   </div>
                   <div class="col-md-6">
+                    <label class="form-label text-sm">N° Documento (CI)</label>
+                    <input type="text" name="ci" class="form-control"
+                           value="{{ professional.identification_number|default:'' }}"
+                           placeholder="Ej. 12345678">
+                  </div>
+                  <div class="col-md-6">
                     <label class="form-label text-sm">Tipo</label>
                     <select name="role" class="form-select">
                       <option value="psychologist" {% if professional.role == 'psychologist' %}selected{% endif %}>Psicólogo/a</option>
                       <option value="psychiatrist" {% if professional.role == 'psychiatrist' %}selected{% endif %}>Psiquiatra</option>
                     </select>
                   </div>
-                  <div class="col-md-6">
-                    <label class="form-label text-sm">Especialidad</label>
-                    <select name="specialty" class="form-select">
-                      <option value="">Sin especialidad</option>
-                      {% for spec in specialties %}
-                      <option value="{{ spec.name }}" {% if professional.specialty == spec.name %}selected{% endif %}>{{ spec.name }}</option>
-                      {% endfor %}
-                      {% if professional.specialty and professional.specialty not in specialties|join:"|" %}
-                      <option value="{{ professional.specialty }}" selected>{{ professional.specialty }} (personalizada)</option>
-                      {% endif %}
-                    </select>
+                  <div class="col-12">
+                    <label class="form-label text-sm">Especialidades</label>
+                    {% if specialties %}
+                    <div class="custom-combo" id="specsComboEdit">
+                      <div class="custom-combo-trigger" id="specsTriggerEdit" tabindex="0" role="combobox" aria-expanded="false" aria-haspopup="listbox">
+                        <div class="combo-multi-display" id="specsDisplayEdit">
+                          <span class="placeholder-text">Sin especialidades</span>
+                        </div>
+                        <i class="material-symbols-rounded combo-arrow">expand_more</i>
+                      </div>
+                      <div class="custom-combo-dropdown" id="specsDropdownEdit">
+                        <div class="combo-search-wrap">
+                          <i class="material-symbols-rounded">search</i>
+                          <input type="text" class="combo-search-input" id="specsSearchEdit" placeholder="Buscar especialidad...">
+                        </div>
+                        <div class="combo-options" id="specsOptionsEdit">
+                          {% for spec in specialties %}
+                          <div class="combo-option combo-option-check" data-value="{{ spec.id }}" data-search="{{ spec.name|lower }}">
+                            <input type="checkbox" name="specialties" value="{{ spec.id }}"
+                                   style="position:absolute;opacity:0;pointer-events:none"
+                                   {% if spec in professional.specialties.all %}checked{% endif %}>
+                            <i class="material-symbols-rounded combo-check-icon">check_box_outline_blank</i>
+                            <span class="combo-name">{{ spec.name }}</span>
+                          </div>
+                          {% endfor %}
+                        </div>
+                        <div class="combo-no-results" id="specsNoResultsEdit">Sin resultados</div>
+                      </div>
+                    </div>
+                    {% else %}
+                    <p class="text-xs text-secondary mb-0">No hay especialidades. <a href="{% url 'parameters' %}">Crear en Parámetros</a>.</p>
+                    {% endif %}
                   </div>
                   <div class="col-12">
                     <label class="form-label text-sm">Biografía</label>
@@ -292,3 +326,19 @@
 </div>
 
 {% endblock content %}
+
+{% block extra_js %}
+<script src="{% static 'js/custom-combo.js' %}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    if (document.getElementById('specsTriggerEdit')) {
+      initMultiCombo({
+        combo: 'specsComboEdit', trigger: 'specsTriggerEdit',
+        dropdown: 'specsDropdownEdit', display: 'specsDisplayEdit',
+        search: 'specsSearchEdit', options: 'specsOptionsEdit',
+        noResults: 'specsNoResultsEdit'
+      });
+    }
+  });
+</script>
+{% endblock extra_js %}
