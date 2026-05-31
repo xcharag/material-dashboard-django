@@ -1,48 +1,78 @@
-<div class="table-responsive p-0">
-  <table class="table align-items-center mb-0">
+﻿{% load static %}
+<div class="d-flex align-items-center justify-content-between px-4 py-3 border-bottom">
+  <span class="text-sm font-weight-bold text-secondary">
+    {{ consultations|length }} cita{{ consultations|length|pluralize:"s" }}
+  </span>
+</div>
+<div class="table-responsive">
+  <table class="table align-items-center mb-0" style="min-width:620px">
     <thead>
-      <tr>
-        <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Paciente</th>
-        <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Consultorio</th>
-        <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Fecha y Hora</th>
-        <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Pagado</th>
-        <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Estado</th>
-        <th class="text-secondary opacity-7"></th>
+      <tr style="background:#f8f9fa">
+        <th class="text-xs font-weight-bold text-secondary ps-4 py-3" style="border:none">Paciente</th>
+        <th class="text-xs font-weight-bold text-secondary py-3" style="border:none">Consultorio</th>
+        <th class="text-xs font-weight-bold text-secondary py-3" style="border:none">Fecha y Hora</th>
+        <th class="text-xs font-weight-bold text-secondary py-3" style="border:none">Estado</th>
+        <th class="text-xs font-weight-bold text-secondary py-3 pe-4 text-end" style="border:none">Acción</th>
       </tr>
     </thead>
     <tbody>
-      {% for consult in consultations %}
-      <tr>
-        <td>
-          <div class="d-flex px-2 py-1">
-            <div class="d-flex flex-column justify-content-center">
-              <h6 class="mb-0 text-sm">{{ consult.patient.first_name }} {{ consult.patient.last_name }}</h6>
+      {% for c in consultations %}
+      <tr style="border-bottom:1px solid rgba(0,0,0,.05)">
+        <!-- Paciente -->
+        <td class="ps-4 py-3">
+          <div class="d-flex align-items-center gap-2">
+            <div style="width:36px;height:36px;border-radius:50%;background:#2196f3;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;color:#fff;flex-shrink:0">
+              {{ c.patient.first_name|slice:":1" }}{{ c.patient.last_name|slice:":1" }}
+            </div>
+            <div>
+              <div class="text-sm font-weight-bold text-dark">{{ c.patient.first_name }} {{ c.patient.last_name }}</div>
+              <div class="text-xs text-secondary">
+                <i class="material-symbols-rounded" style="font-size:.75rem;vertical-align:middle">stethoscope</i>
+                {{ c.professional.first_name }} {{ c.professional.last_name }}
+              </div>
             </div>
           </div>
         </td>
-        <td>
-          <p class="text-xs font-weight-bold mb-0">{{ consult.consultorio_fk.name|default:consult.consultory }}</p>
+        <!-- Consultorio -->
+        <td class="py-3">
+          <div class="d-flex align-items-center gap-1">
+            <i class="material-symbols-rounded text-secondary" style="font-size:.9rem">location_on</i>
+            <span class="text-sm">{{ c.consultorio_fk.name|default:c.consultory }}</span>
+          </div>
         </td>
-        <td class="align-middle text-center text-sm">
-          <p class="text-xs font-weight-bold mb-0">{{ consult.date|date:"d/m/Y" }} {{ consult.time }}</p>
+        <!-- Fecha y hora -->
+        <td class="py-3">
+          <div class="text-sm font-weight-bold">{{ c.date|date:"d/m/Y" }}</div>
+          <div class="d-flex align-items-center gap-1 mt-1">
+            <i class="material-symbols-rounded text-secondary" style="font-size:.75rem">schedule</i>
+            <span class="text-xs text-secondary">{{ c.time }}</span>
+            <span class="badge bg-light text-dark border ms-1" style="font-size:.6rem">{{ c.duration }} min</span>
+          </div>
         </td>
-        <td class="align-middle text-center">
-          <span class="text-secondary text-xs font-weight-bold">Bs {{ consult.paid_amount|default:'0.00' }}</span>
+        <!-- Estado -->
+        <td class="py-3">
+          <span class="badge bg-gradient-{% if c.status == 'pending' %}warning{% elif c.status == 'attended' %}info{% elif c.status == 'completed' %}secondary{% else %}danger{% endif %}">
+            {{ c.get_status_display }}
+          </span>
         </td>
-        <td class="align-middle">
-          <span class="badge bg-gradient-{% if consult.status == 'pending' %}warning{% elif consult.status == 'attended' %}info{% elif consult.status == 'completed' %}secondary{% else %}danger{% endif %}">{{ consult.get_status_display }}</span>
-        </td>
-        <td class="align-middle">
-          {% if consult.status == 'pending' %}
-            <a href="{% url 'start_session' consult.id %}" class="btn btn-sm bg-gradient-success mb-1">Iniciar</a>
+        <!-- Acción -->
+        <td class="py-3 pe-4 text-end">
+          {% if c.status == 'pending' %}
+          <a href="{% url 'start_session' c.id %}"
+             class="btn btn-sm bg-gradient-success d-inline-flex align-items-center gap-1">
+            <i class="material-symbols-rounded" style="font-size:.85rem">play_arrow</i>Iniciar
+          </a>
           {% else %}
-            <button type="button" class="btn btn-sm btn-secondary mb-1" disabled title="Solo disponible en estado Pendiente">Iniciar</button>
+          <span class="text-xs text-secondary">—</span>
           {% endif %}
         </td>
       </tr>
       {% empty %}
       <tr>
-        <td colspan="5" class="text-center py-4">No hay consultas programadas</td>
+        <td colspan="5" class="text-center py-5">
+          <i class="material-symbols-rounded d-block text-secondary mb-2" style="font-size:2.5rem">event_busy</i>
+          <p class="text-secondary text-sm mb-0">No hay citas programadas</p>
+        </td>
       </tr>
       {% endfor %}
     </tbody>

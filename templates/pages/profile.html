@@ -1,269 +1,717 @@
-{% extends "layouts/base.html" %}
+﻿{% extends "layouts/base.html" %}
 {% load static %}
 
-{% block title %} Perfil {% endblock %}
+{% block title %} Mi Perfil {% endblock %}
+
+{% block extrastyle %}
+<style>
+  .profile-hero {
+    border-radius: 1rem;
+    background: linear-gradient(195deg, #42424a, #191919);
+    padding: 2rem 2rem 4.5rem;
+    position: relative; overflow: hidden;
+  }
+  .profile-hero::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+  .avatar-xl {
+    width: 96px; height: 96px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.2rem; font-weight: 700; color: #fff;
+    border: 4px solid rgba(255,255,255,.3);
+    position: relative; z-index: 1; overflow: hidden; flex-shrink: 0;
+  }
+  .avatar-xl img { width: 100%; height: 100%; object-fit: cover; }
+  .section-label {
+    font-size: .68rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: #7b809a; margin-bottom: .75rem;
+  }
+  .info-row {
+    display: flex; align-items: flex-start; gap: .6rem;
+    padding: .5rem 0; border-bottom: 1px solid rgba(0,0,0,.05);
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-icon { color: #7b809a; flex-shrink: 0; font-size: 1rem; margin-top: .05rem; }
+  .nav-tabs-custom .nav-link {
+    color: #7b809a; border: none; padding: .55rem 1rem;
+    border-radius: .5rem; font-size: .82rem; font-weight: 600;
+  }
+  .nav-tabs-custom .nav-link.active { background: linear-gradient(195deg,#42424a,#191919); color: #fff; }
+  .nav-tabs-custom { border-bottom: none; gap: .2rem; flex-wrap: wrap; }
+  .form-label.text-sm { font-size: .8rem; font-weight: 600; color: #344767; }
+  .form-control, .form-select {
+    font-size: .875rem; color: #344767; background-color: #f8f9fa;
+    border: 1px solid #e0e0e0 !important; border-radius: .5rem !important;
+    padding: .55rem .75rem;
+  }
+  .form-control:focus, .form-select:focus {
+    background-color: #fff !important; border-color: #344767 !important;
+    box-shadow: 0 0 0 2px rgba(52,71,103,.12) !important;
+  }
+  .contact-tag {
+    display: inline-flex; align-items: center; gap: .35rem;
+    background: #f0f3f9; border: 1px solid #dde2ef;
+    border-radius: 2rem; padding: .3rem .75rem;
+    font-size: .78rem; color: #344767;
+  }
+  .avail-row td { vertical-align: middle; font-size: .84rem; }
+  .avail-row input[type=time] { padding: .3rem .5rem; font-size: .82rem; }
+  /* avatar upload overlay */
+  .avatar-upload-wrap { position: relative; display: inline-block; cursor: pointer; }
+  .avatar-upload-wrap .avatar-overlay {
+    position: absolute; inset: 0; border-radius: 50%;
+    background: rgba(0,0,0,.45); display: none;
+    align-items: center; justify-content: center; z-index: 2;
+  }
+  .avatar-upload-wrap:hover .avatar-overlay { display: flex; }
+  .avatar-upload-wrap input[type=file] { display: none; }
+</style>
+{% endblock extrastyle %}
+
 {% block content %}
 <div class="container-fluid py-4">
-  <div class="row mb-4">
-    <div class="col-12">
-      <div class="card my-4">
-        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
-          <div class="bg-gradient-success shadow-success border-radius-lg pt-4 pb-3">
-            <h6 class="text-white text-capitalize ps-3">Perfil del Profesional</h6>
+
+  {% if not professional %}
+  <div class="alert alert-warning">Este usuario no está vinculado a un perfil profesional.</div>
+  {% else %}
+
+  <!-- Hero Banner -->
+  <div class="profile-hero mb-0">
+    <div class="d-flex flex-column flex-md-row align-items-md-center gap-3">
+
+      <!-- Avatar with upload in profile-update form -->
+      <form method="post" enctype="multipart/form-data" id="avatarUploadForm" style="position:relative;z-index:1">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_profile">
+        <label class="avatar-upload-wrap" title="Cambiar foto" for="avatarFileInput">
+          <div class="avatar-xl" style="background:{% if professional.role == 'psychologist' %}#1a73e8{% else %}#7c3aed{% endif %}">
+            {% if professional.profile_picture %}
+            <img src="{{ professional.profile_picture.url }}" alt="Foto de perfil">
+            {% else %}
+            {{ professional.first_name|slice:":1" }}{{ professional.last_name|slice:":1" }}
+            {% endif %}
+          </div>
+          <div class="avatar-overlay">
+            <i class="material-symbols-rounded text-white" style="font-size:1.4rem">photo_camera</i>
+          </div>
+        </label>
+        <!-- Hidden fields to keep all required profile data when only uploading avatar -->
+        <input type="file" id="avatarFileInput" name="profile_picture" accept="image/*" onchange="this.form.submit()">
+      </form>
+
+      <div class="text-white z-index-1 position-relative">
+        <h4 class="mb-1 text-white">{{ professional.first_name }} {{ professional.last_name }}</h4>
+        <p class="mb-2 text-white opacity-8" style="font-size:.85rem">{{ request.user.username }}</p>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <span class="badge text-white" style="background:rgba(255,255,255,.2);font-size:.75rem;">
+            <i class="material-symbols-rounded me-1" style="font-size:.8rem;vertical-align:middle">stethoscope</i>
+            {{ professional.get_role_display }}
+          </span>
+          {% for s in professional.specialties.all %}
+          <span class="badge text-white" style="background:rgba(255,255,255,.2);font-size:.75rem;">
+            <i class="material-symbols-rounded me-1" style="font-size:.8rem;vertical-align:middle">school</i>
+            {{ s.name }}
+          </span>
+          {% endfor %}
+          {% if professional.email %}
+          <span class="badge text-white" style="background:rgba(255,255,255,.2);font-size:.75rem;">
+            <i class="material-symbols-rounded me-1" style="font-size:.8rem;vertical-align:middle">email</i>
+            {{ professional.email }}
+          </span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab Nav -->
+  <div class="px-1 mt-3 mb-3">
+    <ul class="nav nav-tabs-custom" id="profileTabs">
+      <li class="nav-item">
+        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabPersonal">
+          <i class="material-symbols-rounded me-1" style="font-size:.85rem;vertical-align:middle">person</i>Personal
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabProfesional">
+          <i class="material-symbols-rounded me-1" style="font-size:.85rem;vertical-align:middle">school</i>Profesional
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabContacto">
+          <i class="material-symbols-rounded me-1" style="font-size:.85rem;vertical-align:middle">contact_phone</i>Contacto
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabDisponibilidad">
+          <i class="material-symbols-rounded me-1" style="font-size:.85rem;vertical-align:middle">calendar_month</i>Disponibilidad
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabCuenta">
+          <i class="material-symbols-rounded me-1" style="font-size:.85rem;vertical-align:middle">lock</i>Cuenta
+        </button>
+      </li>
+    </ul>
+  </div>
+
+  <div class="tab-content" id="profileTabContent">
+
+    <!-- ══════════════════════════════════════════════════════
+         TAB: Información Personal
+    ══════════════════════════════════════════════════════ -->
+    <div class="tab-pane fade show active" id="tabPersonal">
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_profile">
+        <div class="row g-3">
+          <div class="col-12 col-lg-8">
+            <div class="card border-0 shadow-sm">
+              <div class="card-body p-4">
+                <p class="section-label">Datos Personales</p>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label text-sm">Nombre</label>
+                    {{ profile_form.first_name }}
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label text-sm">Apellido</label>
+                    {{ profile_form.last_name }}
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label text-sm">Fecha de Nacimiento</label>
+                    {{ profile_form.birth_date }}
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label text-sm">Género</label>
+                    {{ profile_form.gender }}
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label text-sm">Nacionalidad</label>
+                    {{ profile_form.nationality }}
+                  </div>
+                </div>
+
+                <p class="section-label mt-4">Identificación</p>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label text-sm">Tipo</label>
+                    {{ profile_form.identification_type }}
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label text-sm">Número</label>
+                    {{ profile_form.identification_number }}
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label text-sm">Extensión</label>
+                    {{ profile_form.identification_extension }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Resumen card -->
+          <div class="col-12 col-lg-4">
+            <div class="card border-0 shadow-sm">
+              <div class="card-body p-4">
+                <p class="section-label">Resumen</p>
+                <div class="info-row">
+                  <i class="material-symbols-rounded info-icon">badge</i>
+                  <div>
+                    <div class="text-xs text-secondary">ID Profesional</div>
+                    <div class="text-sm font-weight-bold">#{{ professional.id }}</div>
+                  </div>
+                </div>
+                <div class="info-row">
+                  <i class="material-symbols-rounded info-icon">calendar_today</i>
+                  <div>
+                    <div class="text-xs text-secondary">Registrado</div>
+                    <div class="text-sm font-weight-bold">{{ professional.created_at|date:"d/m/Y" }}</div>
+                  </div>
+                </div>
+                <div class="info-row">
+                  <i class="material-symbols-rounded info-icon">group</i>
+                  <div>
+                    <div class="text-xs text-secondary">Pacientes</div>
+                    <div class="text-sm font-weight-bold">{{ professional.patients.count }}</div>
+                  </div>
+                </div>
+                <div class="info-row">
+                  <i class="material-symbols-rounded info-icon">person</i>
+                  <div>
+                    <div class="text-xs text-secondary">Usuario</div>
+                    <div class="text-sm font-weight-bold">{{ request.user.username }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="card-body px-4 pb-4">
 
-          <div class="row">
-            <div class="col-lg-4">
-              <div class="text-center mb-4">
-                <div class="avatar avatar-xxl">
-                  {% if professional and professional.profile_picture %}
-                    <img src="{{ professional.profile_picture.url }}" class="border-radius-lg shadow" style="width:160px;height:160px;object-fit:cover;" />
-                  {% else %}
-                    <img src="{% static 'img/avilogo.png' %}" class="border-radius-lg shadow" style="width:160px;height:160px;object-fit:cover;" />
-                  {% endif %}
+        <div class="d-flex justify-content-end mt-3">
+          <button type="submit" class="btn bg-gradient-dark">
+            <i class="material-symbols-rounded me-1" style="font-size:1rem">save</i>Guardar Cambios
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         TAB: Información Profesional
+    ══════════════════════════════════════════════════════ -->
+    <div class="tab-pane fade" id="tabProfesional">
+      <div class="row g-3">
+        <div class="col-12 col-lg-8">
+
+          <!-- Profile data form -->
+          <form method="post" enctype="multipart/form-data" class="mb-3">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update_profile">
+            <div class="card border-0 shadow-sm">
+              <div class="card-body p-4">
+                <p class="section-label">Datos Profesionales</p>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label text-sm">N° Licencia Profesional</label>
+                    {{ profile_form.license_number }}
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label text-sm">Años de Experiencia</label>
+                    {{ profile_form.years_experience }}
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label text-sm">Idiomas</label>
+                    {{ profile_form.languages_spoken }}
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label text-sm">Biografía</label>
+                    {{ profile_form.biography }}
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label text-sm">Educación / Formación</label>
+                    {{ profile_form.education }}
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label text-sm">Especializaciones</label>
+                    {{ profile_form.specializations }}
+                  </div>
                 </div>
-                <h6 class="mt-3 mb-0">{{ professional.first_name }} {{ professional.last_name }}</h6>
-                <p class="text-xs text-secondary">{{ professional.get_role_display }}</p>
               </div>
-              <div class="mb-4">
-                <h6>Contactos</h6>
-                <ul class="list-group mb-3">
-                  {% for c in contacts %}
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                      <div>
-                        <strong>{{ c.get_type_display }}:</strong> {{ c.label|default:'-' }}<br>
-                        <span class="text-xs text-secondary">{{ c.value }}</span>
-                      </div>
-                      <form method="post" class="ms-2">
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="delete_contact">
-                        <input type="hidden" name="contact_id" value="{{ c.id }}">
-                        <button class="btn btn-sm btn-outline-danger">Eliminar</button>
-                      </form>
-                    </li>
-                  {% empty %}
-                    <li class="list-group-item">Sin contactos</li>
+            </div>
+            <div class="d-flex justify-content-end mt-3">
+              <button type="submit" class="btn bg-gradient-dark">
+                <i class="material-symbols-rounded me-1" style="font-size:1rem">save</i>Guardar Cambios
+              </button>
+            </div>
+          </form>
+
+          <!-- Specialties M2M form -->
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update_specialties">
+            <div class="card border-0 shadow-sm">
+              <div class="card-body p-4">
+                <p class="section-label">Especialidades del Sistema</p>
+                {% if specialties %}
+                <div class="row g-2">
+                  {% for spec in specialties %}
+                  <div class="col-md-6 col-lg-4">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="specialties"
+                             value="{{ spec.id }}" id="spec_profile_{{ spec.id }}"
+                             {% if spec in professional.specialties.all %}checked{% endif %}>
+                      <label class="form-check-label text-sm" for="spec_profile_{{ spec.id }}">{{ spec.name }}</label>
+                    </div>
+                  </div>
                   {% endfor %}
-                </ul>
-                {% if professional %}
-                <form method="post" class="border rounded p-3">
-                  {% csrf_token %}
-                  <input type="hidden" name="action" value="add_contact">
-                  <div class="mb-2">
-                    <label class="form-label">Tipo</label>
-                    {{ contact_form.type }}
-                  </div>
-                  <div class="mb-2">
-                    <label class="form-label">Etiqueta/Descripción</label>
-                    {{ contact_form.label }}
-                  </div>
-                  <div class="mb-3">
-                    <label class="form-label">Valor</label>
-                    {{ contact_form.value }}
-                  </div>
-                  <button class="btn btn-success w-100">Agregar Contacto</button>
-                </form>
+                </div>
+                <div class="d-flex justify-content-end mt-3">
+                  <button type="submit" class="btn bg-gradient-dark btn-sm">
+                    <i class="material-symbols-rounded me-1" style="font-size:.9rem">save</i>Guardar Especialidades
+                  </button>
+                </div>
+                {% else %}
+                <p class="text-xs text-secondary mb-0">
+                  No hay especialidades configuradas.
+                  {% if request.user.is_staff %}<a href="{% url 'parameters' %}">Crear en Parámetros</a>.{% endif %}
+                </p>
                 {% endif %}
               </div>
             </div>
-            <div class="col-lg-8">
-              {% if professional %}
-              <form method="post" enctype="multipart/form-data" class="border rounded p-3 mb-4">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="update_profile">
-                <div class="row">
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label">Nombre</label>
-                    {{ profile_form.first_name }}
-                  </div>
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label">Apellido</label>
-                    {{ profile_form.last_name }}
-                  </div>
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label">Correo</label>
-                    {{ profile_form.email }}
-                  </div>
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label">Teléfono</label>
-                    {{ profile_form.phone }}
-                  </div>
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label">Especialidad</label>
-                    {{ profile_form.specialty }}
-                  </div>
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label">Foto de Perfil</label>
-                    {{ profile_form.profile_picture }}
-                  </div>
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label">Fecha de Nacimiento</label>
-                    {{ profile_form.birth_date }}
-                  </div>
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label">Género</label>
-                    {{ profile_form.gender }}
-                  </div>
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label">Nacionalidad</label>
-                    {{ profile_form.nationality }}
-                  </div>
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label">Tipo de Identificación</label>
-                    {{ profile_form.identification_type }}
-                  </div>
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label">Número de Identificación</label>
-                    {{ profile_form.identification_number }}
-                  </div>
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label">Extensión</label>
-                    {{ profile_form.identification_extension }}
-                  </div>
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label">N° Licencia</label>
-                    {{ profile_form.license_number }}
-                  </div>
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label">Años de Experiencia</label>
-                    {{ profile_form.years_experience }}
-                  </div>
-                  <div class="col-12 mb-3">
-                    <label class="form-label">Biografía</label>
-                    {{ profile_form.biography }}
-                  </div>
-                  <div class="col-12 mb-3">
-                    <label class="form-label">Educación</label>
-                    {{ profile_form.education }}
-                  </div>
-                  <div class="col-12 mb-3">
-                    <label class="form-label">Especializaciones</label>
-                    {{ profile_form.specializations }}
-                  </div>
-                  <div class="col-12 mb-3">
-                    <label class="form-label">Idiomas</label>
-                    {{ profile_form.languages_spoken }}
-                  </div>
-                </div>
-                <button class="btn btn-primary">Guardar Perfil</button>
-              </form>
+          </form>
 
-              <div class="border rounded p-3">
-                <h6 class="mb-3">Disponibilidad Semanal</h6>
-                <form method="post">
-                  {% csrf_token %}
-                  <input type="hidden" name="action" value="update_availability">
-                  <div class="table-responsive mb-3">
-                    <table class="table table-sm">
-                      <thead>
-                        <tr>
-                          <th>Día</th>
-                          <th>Inicio</th>
-                          <th>Fin</th>
-                          <th>Cerrado</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                      {% for a in availability %}
-                        <tr>
-                          <td>{{ a.get_weekday_display }}</td>
-                          <td><input type="time" name="availability-{{ a.weekday }}-start" value="{{ a.start_time|default:'' }}" class="form-control form-control-sm" {% if a.is_closed %}disabled{% endif %}></td>
-                          <td><input type="time" name="availability-{{ a.weekday }}-end" value="{{ a.end_time|default:'' }}" class="form-control form-control-sm" {% if a.is_closed %}disabled{% endif %}></td>
-                          <td class="text-center"><input type="checkbox" name="availability-{{ a.weekday }}-closed" class="form-check-input" {% if a.is_closed %}checked{% endif %}></td>
-                        </tr>
-                      {% endfor %}
-                      </tbody>
-                    </table>
-                  </div>
-                  <button class="btn btn-sm btn-success">Guardar Disponibilidad</button>
-                </form>
-              </div>
-              <div class="border rounded p-3 mt-4">
-                <h6 class="mb-3">Excepciones por Fecha</h6>
-                <form method="post" class="row g-2 mb-3">
-                  {% csrf_token %}
-                  <input type="hidden" name="action" value="add_exception" />
-                  <div class="col-md-3">
-                    {{ exception_form.date }}
-                    {% if exception_form.date.errors %}
-                      <div class="text-danger small">{{ exception_form.date.errors|join:', ' }}</div>
-                    {% endif %}
-                  </div>
-                  <div class="col-md-3">
-                    {{ exception_form.start_time }}
-                    {% if exception_form.start_time.errors %}
-                      <div class="text-danger small">{{ exception_form.start_time.errors|join:', ' }}</div>
-                    {% endif %}
-                  </div>
-                  <div class="col-md-3">
-                    {{ exception_form.end_time }}
-                    {% if exception_form.end_time.errors %}
-                      <div class="text-danger small">{{ exception_form.end_time.errors|join:', ' }}</div>
-                    {% endif %}
-                  </div>
-                  <div class="col-md-2 d-flex align-items-center">
-                    <div class="form-check mt-1">
-                      {{ exception_form.is_closed }} <label class="form-check-label">Cerrado</label>
-                      {% if exception_form.is_closed.errors %}
-                        <div class="text-danger small">{{ exception_form.is_closed.errors|join:', ' }}</div>
-                      {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         TAB: Contacto
+    ══════════════════════════════════════════════════════ -->
+    <div class="tab-pane fade" id="tabContacto">
+      <div class="row g-3">
+        <div class="col-12 col-lg-8">
+
+          <!-- Email & Phone -->
+          <form method="post" enctype="multipart/form-data" class="mb-3">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update_profile">
+            <div class="card border-0 shadow-sm">
+              <div class="card-body p-4">
+                <p class="section-label">Datos de Contacto Principales</p>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label text-sm">Email</label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-light border-end-0" style="border:1px solid #e0e0e0;border-radius:.5rem 0 0 .5rem">
+                        <i class="material-symbols-rounded text-secondary" style="font-size:1rem">email</i>
+                      </span>
+                      {{ profile_form.email }}
                     </div>
                   </div>
-                  {% if exception_form.non_field_errors %}
-                    <div class="col-12">
-                      <div class="alert alert-danger py-2 mb-0">
-                        {{ exception_form.non_field_errors|join:' ' }}
-                      </div>
+                  <div class="col-md-6">
+                    <label class="form-label text-sm">Teléfono</label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-light border-end-0" style="border:1px solid #e0e0e0;border-radius:.5rem 0 0 .5rem">
+                        <i class="material-symbols-rounded text-secondary" style="font-size:1rem">phone</i>
+                      </span>
+                      {{ profile_form.phone }}
                     </div>
-                  {% endif %}
-                  <div class="col-md-1">
-                    <button class="btn btn-sm btn-success w-100">Agregar</button>
                   </div>
-                </form>
-                <div class="table-responsive">
-                  <table class="table table-sm mb-0">
-                    <thead>
-                      <tr>
-                        <th>Fecha</th>
-                        <th>Inicio</th>
-                        <th>Fin</th>
-                        <th>Cerrado</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {% for ex in exceptions %}
-                      <tr>
-                        <td>{{ ex.date|date:'d/m/Y' }}</td>
-                        <td>{{ ex.start_time|default:'-' }}</td>
-                        <td>{{ ex.end_time|default:'-' }}</td>
-                        <td>{% if ex.is_closed %}<span class="badge bg-gradient-danger">Sí</span>{% else %}<span class="badge bg-gradient-success">No</span>{% endif %}</td>
-                        <td>
-                          <form method="post" class="d-inline">
-                            {% csrf_token %}
-                            <input type="hidden" name="action" value="delete_exception" />
-                            <input type="hidden" name="exception_id" value="{{ ex.id }}" />
-                            <button class="btn btn-sm btn-outline-danger">Eliminar</button>
-                          </form>
-                        </td>
-                      </tr>
-                      {% empty %}
-                      <tr><td colspan="5" class="text-secondary small">Sin excepciones futuras</td></tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
                 </div>
+              </div>
+            </div>
+            <div class="d-flex justify-content-end mt-2">
+              <button type="submit" class="btn bg-gradient-dark btn-sm">
+                <i class="material-symbols-rounded me-1" style="font-size:.9rem">save</i>Guardar
+              </button>
+            </div>
+          </form>
+
+          <!-- Extra contacts list -->
+          <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+              <p class="section-label">Contactos Adicionales</p>
+
+              <!-- Existing contacts -->
+              {% if contacts %}
+              <div class="d-flex flex-wrap gap-2 mb-4">
+                {% for c in contacts %}
+                <div class="contact-tag">
+                  <i class="material-symbols-rounded" style="font-size:.9rem;color:#7b809a">
+                    {% if c.type == 'phone' %}phone{% elif c.type == 'email' %}email{% elif c.type == 'web' %}language{% else %}link{% endif %}
+                  </i>
+                  <span>{% if c.label %}<strong>{{ c.label }}:</strong> {% endif %}{{ c.value }}</span>
+                  <form method="post" class="d-inline ms-1">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete_contact">
+                    <input type="hidden" name="contact_id" value="{{ c.id }}">
+                    <button type="submit" class="border-0 bg-transparent p-0 lh-1" title="Eliminar"
+                            style="color:#f5365c;cursor:pointer;font-size:1rem;vertical-align:middle">
+                      <i class="material-symbols-rounded" style="font-size:.95rem">close</i>
+                    </button>
+                  </form>
+                </div>
+                {% endfor %}
               </div>
               {% else %}
-                <p class="text-secondary">Este usuario no está vinculado a un profesional.</p>
+              <p class="text-xs text-secondary mb-3">Sin contactos adicionales.</p>
               {% endif %}
+
+              <!-- Add contact -->
+              <p class="section-label mt-2">Agregar Contacto</p>
+              <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_contact">
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label text-sm">Tipo</label>
+                    {{ contact_form.type }}
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label text-sm">Etiqueta</label>
+                    {{ contact_form.label }}
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label text-sm">Valor</label>
+                    {{ contact_form.value }}
+                  </div>
+                  <div class="col-12 d-flex justify-content-end">
+                    <button type="submit" class="btn bg-gradient-dark btn-sm">
+                      <i class="material-symbols-rounded me-1" style="font-size:.9rem">add</i>Agregar
+                    </button>
+                  </div>
+                </div>
+              </form>
             </div>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         TAB: Disponibilidad
+    ══════════════════════════════════════════════════════ -->
+    <div class="tab-pane fade" id="tabDisponibilidad">
+      <div class="row g-3">
+        <div class="col-12 col-lg-8">
+
+          <!-- Weekly availability -->
+          <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body p-4">
+              <p class="section-label">Disponibilidad Semanal</p>
+              <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_availability">
+                <div class="table-responsive">
+                  <table class="table table-sm mb-3" style="min-width:480px">
+                    <thead>
+                      <tr style="background:#f8f9fa">
+                        <th class="text-xs text-secondary font-weight-bold ps-3 py-2" style="border:none">Día</th>
+                        <th class="text-xs text-secondary font-weight-bold py-2" style="border:none">Inicio</th>
+                        <th class="text-xs text-secondary font-weight-bold py-2" style="border:none">Fin</th>
+                        <th class="text-xs text-secondary font-weight-bold py-2 text-center" style="border:none">Cerrado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for a in availability %}
+                      <tr class="avail-row" style="border-bottom:1px solid rgba(0,0,0,.05)">
+                        <td class="ps-3 py-2 text-sm font-weight-bold">{{ a.get_weekday_display }}</td>
+                        <td class="py-2">
+                          <input type="time" name="availability-{{ a.weekday }}-start"
+                                 value="{{ a.start_time|default:'' }}" class="form-control form-control-sm"
+                                 style="max-width:120px" {% if a.is_closed %}disabled{% endif %}>
+                        </td>
+                        <td class="py-2">
+                          <input type="time" name="availability-{{ a.weekday }}-end"
+                                 value="{{ a.end_time|default:'' }}" class="form-control form-control-sm"
+                                 style="max-width:120px" {% if a.is_closed %}disabled{% endif %}>
+                        </td>
+                        <td class="py-2 text-center">
+                          <input type="checkbox" name="availability-{{ a.weekday }}-closed"
+                                 class="form-check-input" {% if a.is_closed %}checked{% endif %}
+                                 onchange="toggleRow(this)">
+                        </td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+                <div class="d-flex justify-content-end">
+                  <button type="submit" class="btn bg-gradient-dark btn-sm">
+                    <i class="material-symbols-rounded me-1" style="font-size:.9rem">save</i>Guardar Disponibilidad
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- Exceptions -->
+          <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+              <p class="section-label">Excepciones por Fecha</p>
+
+              <!-- Add exception -->
+              <form method="post" class="mb-4">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_exception">
+                <div class="row g-3 align-items-end">
+                  <div class="col-md-3">
+                    <label class="form-label text-sm">Fecha</label>
+                    {{ exception_form.date }}
+                    {% if exception_form.date.errors %}
+                    <div class="text-danger small">{{ exception_form.date.errors|join:', ' }}</div>
+                    {% endif %}
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label text-sm">Hora inicio</label>
+                    {{ exception_form.start_time }}
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label text-sm">Hora fin</label>
+                    {{ exception_form.end_time }}
+                  </div>
+                  <div class="col-md-2">
+                    <div class="form-check mt-1 d-flex align-items-center gap-1">
+                      {{ exception_form.is_closed }}
+                      <label class="form-check-label text-sm">Cerrado</label>
+                    </div>
+                  </div>
+                  <div class="col-md-1 d-flex align-items-end">
+                    <button type="submit" class="btn bg-gradient-dark btn-sm w-100">
+                      <i class="material-symbols-rounded" style="font-size:.9rem">add</i>
+                    </button>
+                  </div>
+                </div>
+                {% if exception_form.non_field_errors %}
+                <div class="alert alert-warning text-white text-xs py-2 mt-2">{{ exception_form.non_field_errors|join:' ' }}</div>
+                {% endif %}
+              </form>
+
+              <!-- Exceptions table -->
+              {% if exceptions %}
+              <div class="table-responsive">
+                <table class="table table-sm mb-0" style="min-width:400px">
+                  <thead>
+                    <tr style="background:#f8f9fa">
+                      <th class="text-xs text-secondary font-weight-bold ps-3 py-2" style="border:none">Fecha</th>
+                      <th class="text-xs text-secondary font-weight-bold py-2" style="border:none">Inicio</th>
+                      <th class="text-xs text-secondary font-weight-bold py-2" style="border:none">Fin</th>
+                      <th class="text-xs text-secondary font-weight-bold py-2" style="border:none">Cerrado</th>
+                      <th style="border:none"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for ex in exceptions %}
+                    <tr style="border-bottom:1px solid rgba(0,0,0,.05)">
+                      <td class="ps-3 py-2 text-sm font-weight-bold">{{ ex.date|date:'d/m/Y' }}</td>
+                      <td class="py-2 text-sm">{{ ex.start_time|default:'—' }}</td>
+                      <td class="py-2 text-sm">{{ ex.end_time|default:'—' }}</td>
+                      <td class="py-2">
+                        {% if ex.is_closed %}
+                        <span class="badge bg-gradient-danger">Sí</span>
+                        {% else %}
+                        <span class="badge bg-gradient-success">No</span>
+                        {% endif %}
+                      </td>
+                      <td class="py-2 pe-3 text-end">
+                        <form method="post" class="d-inline">
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="delete_exception">
+                          <input type="hidden" name="exception_id" value="{{ ex.id }}">
+                          <button type="submit" class="btn btn-sm bg-gradient-danger" style="padding:.2rem .5rem">
+                            <i class="material-symbols-rounded" style="font-size:.85rem">delete</i>
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% else %}
+              <p class="text-xs text-secondary mb-0">Sin excepciones futuras registradas.</p>
+              {% endif %}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         TAB: Cuenta
+    ══════════════════════════════════════════════════════ -->
+    <div class="tab-pane fade" id="tabCuenta">
+      <div class="row g-3">
+        <div class="col-12 col-lg-6">
+
+          <!-- Username (read-only) -->
+          <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body p-4">
+              <p class="section-label">Información de Cuenta</p>
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label text-sm">Nombre de usuario</label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0" style="border:1px solid #e0e0e0;border-radius:.5rem 0 0 .5rem">
+                      <i class="material-symbols-rounded text-secondary" style="font-size:1rem">person</i>
+                    </span>
+                    <input type="text" class="form-control border-start-0"
+                           value="{{ request.user.username }}" disabled
+                           style="border-radius:0 .5rem .5rem 0;background:#f0f0f0;color:#9e9e9e">
+                  </div>
+                  <small class="text-xs text-secondary">El nombre de usuario no se puede cambiar aquí.</small>
+                </div>
+                <div class="col-12">
+                  <label class="form-label text-sm">Último acceso</label>
+                  <div class="text-sm text-secondary">
+                    {{ request.user.last_login|date:"d/m/Y H:i"|default:"Sin registro" }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Change password -->
+          <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+              <p class="section-label">Cambiar Contraseña</p>
+              <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="change_password">
+                <div class="row g-3">
+                  <div class="col-12">
+                    <label class="form-label text-sm">Contraseña actual <span class="text-danger">*</span></label>
+                    <input type="password" name="current_password" class="form-control"
+                           placeholder="Ingresa tu contraseña actual" required>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label text-sm">Nueva contraseña <span class="text-danger">*</span></label>
+                    <input type="password" name="new_password" class="form-control" id="newPass"
+                           placeholder="Mínimo 8 caracteres" required minlength="8">
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label text-sm">Confirmar nueva contraseña <span class="text-danger">*</span></label>
+                    <input type="password" name="confirm_password" class="form-control" id="confirmPass"
+                           placeholder="Repite la nueva contraseña" required minlength="8">
+                    <div id="passMismatch" class="text-xs text-danger mt-1 d-none">Las contraseñas no coinciden.</div>
+                  </div>
+                  <div class="col-12">
+                    <div class="d-flex align-items-start gap-2 p-3 rounded" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+                      <i class="material-symbols-rounded text-success mt-1" style="font-size:1rem">info</i>
+                      <p class="text-xs text-secondary mb-0">
+                        Usa al menos 8 caracteres. Combina letras, números y símbolos para mayor seguridad.
+                      </p>
+                    </div>
+                  </div>
+                  <div class="col-12 d-flex justify-content-end">
+                    <button type="submit" class="btn bg-gradient-dark" id="changePassBtn">
+                      <i class="material-symbols-rounded me-1" style="font-size:1rem">lock_reset</i>Cambiar Contraseña
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
   </div>
+  {% endif %}
 </div>
 {% endblock content %}
+
+{% block extra_js %}
+<script>
+  // Toggle time inputs when "Cerrado" checkbox changes
+  function toggleRow(cb) {
+    var row = cb.closest('tr');
+    row.querySelectorAll('input[type=time]').forEach(function (inp) {
+      inp.disabled = cb.checked;
+      if (cb.checked) inp.value = '';
+    });
+  }
+
+  // Confirm password match
+  var newPass = document.getElementById('newPass');
+  var confirmPass = document.getElementById('confirmPass');
+  var mismatch = document.getElementById('passMismatch');
+  var changePassBtn = document.getElementById('changePassBtn');
+  function checkPassMatch() {
+    if (confirmPass.value && newPass.value !== confirmPass.value) {
+      mismatch.classList.remove('d-none');
+      changePassBtn.disabled = true;
+    } else {
+      mismatch.classList.add('d-none');
+      changePassBtn.disabled = false;
+    }
+  }
+  if (newPass) newPass.addEventListener('input', checkPassMatch);
+  if (confirmPass) confirmPass.addEventListener('input', checkPassMatch);
+</script>
+{% endblock extra_js %}

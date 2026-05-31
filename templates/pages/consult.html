@@ -1,300 +1,392 @@
-{% extends "layouts/base.html" %}
+﻿{% extends "layouts/base.html" %}
+{% load static %}
 
-{% block title %} Consultas {% endblock %}
+{% block title %} Citas {% endblock %}
+
+{% block extrastyle %}
+<link rel="stylesheet" href="{% static 'css/custom-combo.css' %}">
+<style>
+  .offcanvas { width: 480px !important; }
+  @media(max-width:576px){ .offcanvas { width: 100% !important; } }
+  .offcanvas-body .field-label {
+    display: block; font-size: .7rem; font-weight: 700;
+    letter-spacing: .06em; text-transform: uppercase;
+    color: #7b809a; margin-bottom: .35rem;
+  }
+  .offcanvas-body .field-label .req { color: #f5365c; margin-left: .2rem; font-size: .85rem; }
+  .offcanvas-body .form-control,
+  .offcanvas-body .form-select {
+    font-size: .875rem; color: #344767; background-color: #f8f9fa;
+    border: 1px solid #e0e0e0; border-radius: .5rem; padding: .55rem .75rem;
+  }
+  .offcanvas-body .form-control:focus,
+  .offcanvas-body .form-select:focus {
+    background-color: #fff; border-color: #344767;
+    box-shadow: 0 0 0 2px rgba(52,71,103,.12);
+  }
+  .filter-card .form-select,
+  .filter-card .form-control {
+    font-size: .82rem; border-radius: .5rem;
+    border: 1px solid #e0e0e0; background: #f8f9fa;
+    padding: .45rem .65rem; color: #344767;
+  }
+  .filter-card .form-select:focus,
+  .filter-card .form-control:focus {
+    background: #fff; border-color: #344767;
+    box-shadow: 0 0 0 2px rgba(52,71,103,.12);
+  }
+</style>
+{% endblock extrastyle %}
 
 {% block content %}
-
 <div class="container-fluid py-4">
-  <!-- Create Consultation Card -->
-  <div class="row">
-    <div class="col-12">
-      <div class="card my-4">
-        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
-          <div class="bg-gradient-success shadow-success border-radius-lg pt-4 pb-3">
-            <h6 class="text-white text-capitalize ps-3">Programar Consulta</h6>
-          </div>
-        </div>
-        <div class="card-body px-4 pb-2">
 
-          <!-- Consultation Form -->
-          <form method="post">
-            {% csrf_token %}
-            <div class="row">
-              <div class="col-md-6">
-                <div class="input-group input-group-static mb-4">
-                  <label for="patient">Paciente</label>
-                  <select name="patient" id="patient" class="form-control" required>
-                    <option value="">Seleccionar paciente</option>
-                    {% for patient in patients %}
-                      <option value="{{ patient.id }}">{{ patient.first_name }} {{ patient.last_name }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="input-group input-group-static mb-4">
-                  <label for="consultory">Consultorio</label>
-                  <select name="consultory" id="consultory" class="form-control" required>
-                    <option value="">Seleccionar consultorio</option>
-                    {% for c in consultorios %}
-                      {% if c.is_active %}<option value="{{ c.id }}">{{ c.name }}{% if c.address %} - {{ c.address }}{% endif %}</option>{% endif %}
-                    {% endfor %}
-                  </select>
-                </div>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-md-6">
-                <div class="input-group input-group-static mb-4">
-                  <label>Fecha</label>
-                  <input type="date" name="date" class="form-control" required min="{{ today|date:'Y-m-d' }}">
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="input-group input-group-static mb-4">
-                  <label>Hora</label>
-                  <select name="time" id="time" class="form-control" required>
-                    <option value="">Seleccione una fecha para ver horarios</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-md-6">
-                <div class="input-group input-group-static mb-4">
-                  <!-- Costo movido a módulo de finanzas -->
-                  <!-- Campo retirado: el cobro se gestiona en Finanzas -->
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="input-group input-group-static mb-4">
-                  <label>Duración</label>
-                  <select name="duration" id="duration" class="form-control">
-                    <option value="30">30 minutos</option>
-                    <option value="60" selected>1 hora</option>
-                    <option value="90">1 hora 30 minutos</option>
-                    <option value="120">2 horas</option>
-                    <option value="150">2 horas 30 minutos</option>
-                    <option value="180">3 horas</option>
-                    <option value="210">3 horas 30 minutos</option>
-                    <option value="240">4 horas</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          <!-- Add this after the duration field in the consultation form if the user is admin -->
-            {% if is_admin %}
-            <div class="row">
-              <div class="col-md-6">
-                <div class="input-group input-group-static mb-4">
-                  <label for="professional">Profesional</label>
-                  <select name="professional" id="professional" class="form-control" required>
-                    <option value="">Seleccionar profesional</option>
-                    {% for prof in all_professionals %}
-                      <option value="{{ prof.id }}"{% if forloop.first %} selected{% endif %}>{{ prof.first_name }} {{ prof.last_name }} ({{ prof.get_role_display }})</option>
-                    {% endfor %}
-                  </select>
-                </div>
-              </div>
-            </div>
-            {% endif %}
-            <div class="row">
-              <div class="col-12">
-                <div class="input-group input-group-static mb-4">
-                  <label>Notas</label>
-                  <textarea name="notes" class="form-control" rows="3"></textarea>
-                </div>
-              </div>
-            </div>
-            <div class="text-center">
-              <button type="submit" class="btn btn-outline-success w-100 my-4 mb-2">Programar Consulta</button>
-            </div>
-          </form>
+  <!-- Page header -->
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-4 gap-3">
+    <div>
+      <h5 class="mb-0 font-weight-bolder">Citas</h5>
+      <p class="text-sm text-secondary mb-0">Gestión de consultas y citas programadas</p>
+    </div>
+    <button class="btn bg-gradient-dark btn-sm d-flex align-items-center gap-1"
+            data-bs-toggle="offcanvas" data-bs-target="#addCitaCanvas">
+      <i class="material-symbols-rounded" style="font-size:1rem">event_available</i>
+      Nueva Cita
+    </button>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="card border-0 shadow-sm mb-4 filter-card">
+    <div class="card-body p-3">
+      <form id="consultFilterForm" class="row g-2 align-items-end">
+        <div class="col-12 col-sm-6 col-md-3">
+          <label class="form-label text-xs text-secondary mb-1">Paciente</label>
+          <select name="patient" class="form-select">
+            <option value="">Todos los pacientes</option>
+            {% for p in patients %}
+            <option value="{{ p.id }}" {% if request.GET.patient == p.id|stringformat:'s' %}selected{% endif %}>
+              {{ p.first_name }} {{ p.last_name }}
+            </option>
+            {% endfor %}
+          </select>
         </div>
-      </div>
+        <div class="col-12 col-sm-6 col-md-2">
+          <label class="form-label text-xs text-secondary mb-1">Consultorio</label>
+          <select name="consultory" class="form-select">
+            <option value="">Todos</option>
+            {% for c in consultorios %}
+            <option value="{{ c.id }}" {% if request.GET.consultory == c.id|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12 col-sm-6 col-md-2">
+          <label class="form-label text-xs text-secondary mb-1">Fecha</label>
+          <input type="date" name="date" value="{{ request.GET.date }}" class="form-control">
+        </div>
+        <div class="col-12 col-sm-6 col-md-3">
+          <label class="form-label text-xs text-secondary mb-1">Estado</label>
+          <select name="status" class="form-select">
+            <option value="">Todos los estados</option>
+            <option value="pending"   {% if request.GET.status == 'pending'    %}selected{% endif %}>Pendiente</option>
+            <option value="attended"  {% if request.GET.status == 'attended'   %}selected{% endif %}>Atendida</option>
+            <option value="no_show"   {% if request.GET.status == 'no_show'    %}selected{% endif %}>No Atendida</option>
+            <option value="cancelled" {% if request.GET.status == 'cancelled'  %}selected{% endif %}>Cancelada</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-2 d-flex gap-2">
+          <button type="submit"
+                  class="btn bg-gradient-dark btn-sm flex-grow-1 d-flex align-items-center justify-content-center gap-1">
+            <i class="material-symbols-rounded" style="font-size:.9rem">filter_alt</i>Filtrar
+          </button>
+          <a href="{% url 'consult' %}"
+             class="btn btn-light btn-sm d-flex align-items-center justify-content-center"
+             title="Limpiar filtros">
+            <i class="material-symbols-rounded" style="font-size:.9rem">close</i>
+          </a>
+        </div>
+      </form>
     </div>
   </div>
 
-  <!-- Upcoming Consultations List Card -->
-  <div class="row">
-    <div class="col-12">
-      <div class="card my-4">
-        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
-          <div class="bg-gradient-success shadow-success border-radius-lg pt-4 pb-3">
-            <h6 class="text-white text-capitalize ps-3">Consultas Programadas</h6>
+  <!-- Consultations table card -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0" id="consultTableContainer">
+      {% include 'pages/_consult_table.html' %}
+    </div>
+  </div>
+
+</div>
+
+<!-- Offcanvas: Nueva Cita -->
+<div class="offcanvas offcanvas-end shadow-lg" tabindex="-1" id="addCitaCanvas">
+  <div class="offcanvas-header border-bottom">
+    <div class="d-flex align-items-center gap-2">
+      <div style="width:36px;height:36px;border-radius:50%;background:#344767;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="material-symbols-rounded text-white" style="font-size:1rem">event_available</i>
+      </div>
+      <h6 class="mb-0">Nueva Cita</h6>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+  </div>
+  <div class="offcanvas-body">
+    <form method="post" id="consultCreateForm">
+      {% csrf_token %}
+
+      <p class="text-xs text-uppercase text-secondary font-weight-bolder mb-3 mt-1">Paciente</p>
+
+      <div class="mb-3">
+        <label class="field-label">Paciente <span class="req">*</span></label>
+        <div class="custom-combo" id="patientCombo">
+          <div class="custom-combo-trigger" id="patientTrigger" tabindex="0"
+               role="combobox" aria-expanded="false" aria-haspopup="listbox">
+            <div id="patientDisplay"><span class="placeholder-text">Seleccionar paciente</span></div>
+            <i class="material-symbols-rounded combo-arrow">expand_more</i>
           </div>
-        </div>
-        <div class="card-body px-4 pb-2">
-          <form method="get" class="row g-2 mb-3" id="consultFilterForm">
-            <div class="col-md-3">
-              <select name="patient" class="form-select">
-                <option value="">Filtrar Paciente</option>
-                {% for p in patients %}
-                  <option value="{{ p.id }}" {% if request.GET.patient == p.id|stringformat:'s' %}selected{% endif %}>{{ p.first_name }} {{ p.last_name }}</option>
-                {% endfor %}
-              </select>
+          <input type="hidden" name="patient" id="patientHidden" required>
+          <div class="custom-combo-dropdown" id="patientDropdown">
+            <div class="combo-search-wrap">
+              <i class="material-symbols-rounded">search</i>
+              <input type="text" class="combo-search-input" id="patientSearch" placeholder="Buscar paciente...">
             </div>
-            <div class="col-md-2">
-              <select name="consultory" class="form-select">
-                <option value="">Consultorio</option>
-                {% for c in consultorios %}
-                  <option value="{{ c.id }}" {% if request.GET.consultory == c.id|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>
-                {% endfor %}
-              </select>
+            <div class="combo-options" id="patientOptions">
+              {% for p in patients %}
+              <div class="combo-option"
+                   data-value="{{ p.id }}"
+                   data-name="{{ p.first_name }} {{ p.last_name }}"
+                   data-role="Paciente"
+                   data-initials="{{ p.first_name|slice:':1' }}{{ p.last_name|slice:':1' }}"
+                   data-search="{{ p.first_name|lower }} {{ p.last_name|lower }}">
+                <div class="combo-avatar" style="background:#2196f3">{{ p.first_name|slice:":1" }}{{ p.last_name|slice:":1" }}</div>
+                <span class="combo-name">{{ p.first_name }} {{ p.last_name }}</span>
+                <span class="combo-role">Paciente</span>
+              </div>
+              {% endfor %}
             </div>
-            <div class="col-md-2">
-              <input type="date" name="date" value="{{ request.GET.date }}" class="form-control" />
-            </div>
-            <div class="col-md-3">
-              <select name="status" class="form-select">
-                <option value="">Estado</option>
-                <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>Pendiente</option>
-                <option value="attended" {% if request.GET.status == 'attended' %}selected{% endif %}>Atendida</option>
-                <option value="no_show" {% if request.GET.status == 'no_show' %}selected{% endif %}>No Atendida</option>
-                <option value="cancelled" {% if request.GET.status == 'cancelled' %}selected{% endif %}>Cancelada</option>
-              </select>
-            </div>
-            <div class="col-md-2 d-flex">
-              <button class="btn btn-success w-100">Filtrar</button>
-            </div>
-          </form>
-          <div id="consultTableContainer">
-            {% include 'pages/_consult_table.html' %}
+            <div class="combo-no-results" id="patientNoResults">Sin resultados</div>
           </div>
         </div>
       </div>
-    </div>
+
+      {% if is_admin %}
+      <div class="mb-3">
+        <label class="field-label">Profesional <span class="req">*</span></label>
+        <div class="custom-combo" id="profComboNew">
+          <div class="custom-combo-trigger" id="profTriggerNew" tabindex="0"
+               role="combobox" aria-expanded="false" aria-haspopup="listbox">
+            <div id="profDisplayNew"><span class="placeholder-text">Seleccionar profesional</span></div>
+            <i class="material-symbols-rounded combo-arrow">expand_more</i>
+          </div>
+          <input type="hidden" name="professional" id="profHidden">
+          <div class="custom-combo-dropdown" id="profDropdownNew">
+            <div class="combo-search-wrap">
+              <i class="material-symbols-rounded">search</i>
+              <input type="text" class="combo-search-input" id="profSearchNew" placeholder="Buscar profesional...">
+            </div>
+            <div class="combo-options" id="profOptionsNew">
+              {% for prof in all_professionals %}
+              <div class="combo-option"
+                   data-value="{{ prof.id }}"
+                   data-name="{{ prof.first_name }} {{ prof.last_name }}"
+                   data-role="{{ prof.get_role_display }}"
+                   data-initials="{{ prof.first_name|slice:':1' }}{{ prof.last_name|slice:':1' }}"
+                   data-search="{{ prof.first_name|lower }} {{ prof.last_name|lower }}">
+                <div class="combo-avatar"
+                     style="background:{% if prof.role == 'psychologist' %}#1a73e8{% else %}#7c3aed{% endif %}">
+                  {{ prof.first_name|slice:":1" }}{{ prof.last_name|slice:":1" }}
+                </div>
+                <span class="combo-name">{{ prof.first_name }} {{ prof.last_name }}</span>
+                <span class="combo-role">{{ prof.get_role_display }}</span>
+              </div>
+              {% endfor %}
+            </div>
+            <div class="combo-no-results" id="profNoResultsNew">Sin resultados</div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <p class="text-xs text-uppercase text-secondary font-weight-bolder mb-3 mt-4">Programación</p>
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="field-label">Consultorio <span class="req">*</span></label>
+          <select name="consultory" class="form-select" required>
+            <option value="">Seleccionar consultorio</option>
+            {% for c in consultorios %}
+            {% if c.is_active %}
+            <option value="{{ c.id }}">{{ c.name }}{% if c.address %} – {{ c.address }}{% endif %}</option>
+            {% endif %}
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="field-label">Fecha <span class="req">*</span></label>
+          <input type="date" name="date" id="citaDate" class="form-control" required min="{{ today|date:'Y-m-d' }}">
+        </div>
+        <div class="col-md-6">
+          <label class="field-label">Duración</label>
+          <select name="duration" id="citaDuration" class="form-select">
+            <option value="30">30 min</option>
+            <option value="60" selected>1 hora</option>
+            <option value="90">1h 30min</option>
+            <option value="120">2 horas</option>
+            <option value="150">2h 30min</option>
+            <option value="180">3 horas</option>
+            <option value="210">3h 30min</option>
+            <option value="240">4 horas</option>
+          </select>
+        </div>
+        <div class="col-12">
+          <label class="field-label">Hora <span class="req">*</span></label>
+          <select name="time" id="time" class="form-select" required>
+            <option value="">Seleccione fecha para ver horarios</option>
+          </select>
+        </div>
+      </div>
+
+      <p class="text-xs text-uppercase text-secondary font-weight-bolder mb-3 mt-4">Notas</p>
+      <div class="mb-3">
+        <textarea name="notes" class="form-control" rows="3"
+                  placeholder="Observaciones para la cita..."></textarea>
+      </div>
+
+      <div class="d-grid mt-4">
+        <button type="submit" class="btn bg-gradient-dark">
+          <i class="material-symbols-rounded me-1" style="font-size:1rem">save</i>
+          Guardar Cita
+        </button>
+      </div>
+    </form>
   </div>
 </div>
 
 {% endblock content %}
 
 {% block extra_js %}
+<script src="{% static 'js/custom-combo.js' %}"></script>
 <script>
-  (function() {
-    function get(url) { return fetch(url, {credentials:'same-origin'}).then(r => r.json()); }
-    function getHTML(url) { return fetch(url, {credentials:'same-origin'}).then(r => r.text()); }
-    function getCookie(name) {
-      const value = `; ${document.cookie}`;
-      const parts = value.split(`; ${name}=`);
-      if (parts.length === 2) return parts.pop().split(';').shift();
-    }
-    function showToast(message, level) {
-      // level: success, info, warning, danger
-      var container = document.getElementById('toastContainer');
-      if (!container) return alert(message);
-      var wrapper = document.createElement('div');
-      wrapper.className = 'toast show mb-2';
-      wrapper.setAttribute('role','alert');
-      wrapper.setAttribute('aria-live','assertive');
-      wrapper.setAttribute('aria-atomic','true');
-      wrapper.innerHTML = `
-        <div class="toast-header bg-gradient-${level === 'error' ? 'danger' : level} text-white">
-          <i class="material-symbols-rounded me-2">notifications</i>
-          <strong class="me-auto">Notificación</strong>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-        <div class="toast-body">${message}</div>`;
-      container.prepend(wrapper);
-      try { new bootstrap.Toast(wrapper, {delay: 5000}).show(); } catch(e) {}
-    }
-    function refreshSlots() {
-      var sel = document.getElementById('time');
-      var date = document.querySelector('input[name="date"]').value;
-      var duration = document.querySelector('select[name="duration"]').value || '60';
-      var professional = document.getElementById('professional');
-      var params = new URLSearchParams();
+(function () {
+  function get(url) { return fetch(url, { credentials: 'same-origin' }).then(r => r.json()); }
+  function getHTML(url) { return fetch(url, { credentials: 'same-origin' }).then(r => r.text()); }
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+  }
 
-      // Preconditions
-      if (professional && !professional.value) {
-        sel.innerHTML = '<option value="">Seleccione un profesional</option>';
-        return;
-      }
-      if (!date) {
-        sel.innerHTML = '<option value="">Seleccione una fecha</option>';
-        return;
-      }
+  function refreshSlots() {
+    var sel = document.getElementById('time');
+    var date = document.getElementById('citaDate').value;
+    var duration = document.getElementById('citaDuration').value || '60';
+    var profHidden = document.getElementById('profHidden');
+    var params = new URLSearchParams();
 
-      params.set('date', date);
-      params.set('duration', duration);
-      if (professional && professional.value) {
-        params.set('professional_id', professional.value);
-      }
-      get('{% url "available_slots_api" %}?'+params.toString()).then(data => {
-        sel.innerHTML = '';
-        if (data.slots && data.slots.length) {
-          var def = document.createElement('option');
-          def.value = '';
-          def.textContent = 'Seleccionar hora disponible';
-          sel.appendChild(def);
-          data.slots.forEach(function(s){
-            var opt = document.createElement('option');
-            opt.value = s;
-            opt.textContent = s;
-            sel.appendChild(opt);
-          });
-        } else {
+    if (profHidden !== null && !profHidden.value) {
+      sel.innerHTML = '<option value="">Seleccione un profesional primero</option>';
+      return;
+    }
+    if (!date) {
+      sel.innerHTML = '<option value="">Seleccione una fecha</option>';
+      return;
+    }
+    params.set('date', date);
+    params.set('duration', duration);
+    if (profHidden && profHidden.value) params.set('professional_id', profHidden.value);
+
+    get('{% url "available_slots_api" %}?' + params.toString()).then(function (data) {
+      sel.innerHTML = '';
+      if (data.slots && data.slots.length) {
+        var def = document.createElement('option');
+        def.value = ''; def.textContent = 'Seleccionar hora';
+        sel.appendChild(def);
+        data.slots.forEach(function (s) {
           var opt = document.createElement('option');
-          opt.value = '';
-          opt.textContent = 'No hay horarios disponibles';
+          opt.value = s; opt.textContent = s;
           sel.appendChild(opt);
-        }
-      }).catch(() => {
-        sel.innerHTML = '<option value="">Error al cargar horarios</option>';
-      });
-    }
-    function refreshTable() {
-      var form = document.getElementById('consultFilterForm');
-      if (!form) return;
-      var params = new URLSearchParams(new FormData(form)).toString();
-      var url = '{% url "consult_table" %}' + (params ? ('?' + params) : '');
-      getHTML(url).then(function(html){
-        var container = document.getElementById('consultTableContainer');
-        if (container) container.innerHTML = html;
-      });
-    }
-    document.addEventListener('DOMContentLoaded', function(){
-      var date = document.querySelector('input[name="date"]');
-      var dur = document.querySelector('select[name="duration"]');
-      var prof = document.getElementById('professional');
-      var createForm = document.querySelector('form[method="post"]');
-      var filterForm = document.getElementById('consultFilterForm');
-      if (date) date.addEventListener('change', refreshSlots);
-      if (dur) dur.addEventListener('input', refreshSlots);
-      if (prof) prof.addEventListener('change', refreshSlots);
-      if (filterForm) {
-        filterForm.addEventListener('submit', function(ev){ ev.preventDefault(); refreshTable(); });
-        filterForm.addEventListener('change', function(){ refreshTable(); });
-      }
-      if (createForm) {
-        createForm.id = 'consultCreateForm';
-        createForm.addEventListener('submit', function(ev){
-          ev.preventDefault();
-          var fd = new FormData(createForm);
-          fetch('{% url "consult" %}', {
-            method: 'POST',
-            headers: {'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken')},
-            body: fd,
-            credentials: 'same-origin'
-          }).then(function(r){ return r.json().catch(()=>({ok:false,message:'Error de servidor'})); })
-            .then(function(res){
-              if (res && res.ok) {
-                showToast(res.message || 'Consulta programada con éxito!', 'success');
-                refreshTable();
-                // Reset time only; keep other selections
-                var timeSel = document.getElementById('time');
-                if (timeSel) timeSel.value = '';
-              } else {
-                showToast((res && res.message) || 'No se pudo programar la consulta', 'danger');
-              }
-            }).catch(function(){ showToast('Error de red', 'danger'); });
         });
+      } else {
+        sel.innerHTML = '<option value="">No hay horarios disponibles</option>';
       }
-      // Trigger initial load if date already chosen or for admin with auto-selected professional
-      if (date && date.value) { refreshSlots(); }
-      // Initial table load respects current filters
-      refreshTable();
+    }).catch(function () {
+      sel.innerHTML = '<option value="">Error al cargar horarios</option>';
     });
-  })();
+  }
+
+  function refreshTable() {
+    var form = document.getElementById('consultFilterForm');
+    if (!form) return;
+    var params = new URLSearchParams(new FormData(form)).toString();
+    var url = '{% url "consult_table" %}' + (params ? '?' + params : '');
+    getHTML(url).then(function (html) {
+      var c = document.getElementById('consultTableContainer');
+      if (c) c.innerHTML = html;
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    // Init patient combo
+    initCombo({
+      combo: 'patientCombo', trigger: 'patientTrigger',
+      dropdown: 'patientDropdown', display: 'patientDisplay',
+      hidden: 'patientHidden', search: 'patientSearch',
+      options: 'patientOptions', noResults: 'patientNoResults'
+    });
+
+    {% if is_admin %}
+    // Init professional combo (admin only)
+    initCombo({
+      combo: 'profComboNew', trigger: 'profTriggerNew',
+      dropdown: 'profDropdownNew', display: 'profDisplayNew',
+      hidden: 'profHidden', search: 'profSearchNew',
+      options: 'profOptionsNew', noResults: 'profNoResultsNew'
+    });
+    var profHidden = document.getElementById('profHidden');
+    if (profHidden) profHidden.addEventListener('change', refreshSlots);
+    {% endif %}
+
+    var dateInput = document.getElementById('citaDate');
+    var durSel = document.getElementById('citaDuration');
+    if (dateInput) dateInput.addEventListener('change', refreshSlots);
+    if (durSel) durSel.addEventListener('change', refreshSlots);
+
+    var filterForm = document.getElementById('consultFilterForm');
+    if (filterForm) {
+      filterForm.addEventListener('submit', function (ev) { ev.preventDefault(); refreshTable(); });
+      filterForm.addEventListener('change', function () { refreshTable(); });
+    }
+
+    var createForm = document.getElementById('consultCreateForm');
+    if (createForm) {
+      createForm.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        var fd = new FormData(createForm);
+        fetch('{% url "consult" %}', {
+          method: 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken') },
+          body: fd,
+          credentials: 'same-origin'
+        }).then(function (r) { return r.json().catch(function () { return { ok: false, message: 'Error de servidor' }; }); })
+          .then(function (res) {
+            if (res && res.ok) {
+              showToast(res.message || 'Cita programada con éxito!', 'success');
+              refreshTable();
+              var oc = bootstrap.Offcanvas.getInstance(document.getElementById('addCitaCanvas'));
+              if (oc) oc.hide();
+              createForm.reset();
+              document.getElementById('patientDisplay').innerHTML = '<span class="placeholder-text">Seleccionar paciente</span>';
+              document.getElementById('patientHidden').value = '';
+              {% if is_admin %}
+              document.getElementById('profDisplayNew').innerHTML = '<span class="placeholder-text">Seleccionar profesional</span>';
+              document.getElementById('profHidden').value = '';
+              {% endif %}
+              document.getElementById('time').innerHTML = '<option value="">Seleccione fecha para ver horarios</option>';
+            } else {
+              showToast((res && res.message) || 'No se pudo programar la cita', 'danger');
+            }
+          }).catch(function () { showToast('Error de red', 'danger'); });
+      });
+    }
+
+    refreshTable();
+  });
+}());
 </script>
 {% endblock extra_js %}

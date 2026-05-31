@@ -3,6 +3,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import views as auth_views
+from django.contrib.auth import update_session_auth_hash
 from django.db import IntegrityError
 from django.db.models import Sum
 from .models import Patient, Professional, Consultation, ConsultationNote, ConsultationAttachment, Consultorio
@@ -855,6 +856,27 @@ def profile(request):
             ex.delete()
             messages.success(request, 'Excepción eliminada.')
             return redirect('profile')
+        elif action == 'change_password':
+            current = request.POST.get('current_password', '')
+            new_pass = request.POST.get('new_password', '')
+            confirm = request.POST.get('confirm_password', '')
+            if not request.user.check_password(current):
+                messages.error(request, 'La contraseña actual no es correcta.')
+            elif new_pass != confirm:
+                messages.error(request, 'Las contraseñas nuevas no coinciden.')
+            elif len(new_pass) < 8:
+                messages.error(request, 'La nueva contraseña debe tener al menos 8 caracteres.')
+            else:
+                request.user.set_password(new_pass)
+                request.user.save()
+                update_session_auth_hash(request, request.user)
+                messages.success(request, 'Contraseña actualizada correctamente.')
+            return redirect('profile')
+        elif action == 'update_specialties' and professional:
+            specialty_ids = request.POST.getlist('specialties')
+            professional.specialties.set(Specialty.objects.filter(id__in=specialty_ids))
+            messages.success(request, 'Especialidades actualizadas.')
+            return redirect('profile')
 
     contacts = professional.contacts.all() if professional else []
     availability = professional.weekly_availability.all() if professional else []
@@ -869,6 +891,7 @@ def profile(request):
         'availability': availability,
         'exception_form': exception_form,
         'exceptions': exceptions,
+        'specialties': Specialty.objects.filter(is_active=True).order_by('name'),
     })
 
 

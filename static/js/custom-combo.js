@@ -50,6 +50,7 @@ function initCombo(ids, selectedValue) {
     const color    = opt.querySelector('.combo-avatar').style.background;
 
     hidden.value = val;
+    hidden.dispatchEvent(new Event('change'));
 
     if (val === '') {
       display.innerHTML = '<span class="placeholder-text">Seleccionar profesional</span>';
