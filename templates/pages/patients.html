@@ -1,192 +1,392 @@
 {% extends "layouts/base.html" %}
+{% load static %}
 
 {% block title %} Pacientes {% endblock %}
+
+{% block extrastyle %}
+<style>
+  .patient-card {
+    transition: transform .18s ease, box-shadow .18s ease;
+    border: none;
+    border-radius: 1rem;
+    overflow: hidden;
+  }
+  .patient-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(0,0,0,.12) !important;
+  }
+  .avatar-circle {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .avatar-circle-lg {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .patient-card .card-footer {
+    background: transparent;
+    border-top: 1px solid rgba(0,0,0,.06);
+  }
+  .badge-pro {
+    font-size: .68rem;
+    padding: .28em .6em;
+    border-radius: .5rem;
+  }
+  #patientSearch { border-radius: .75rem; }
+  .offcanvas { width: 480px !important; }
+  @media(max-width:576px){ .offcanvas { width: 100% !important; } }
+  .empty-state { padding: 5rem 1rem; }
+  .empty-state i { font-size: 4rem; color: #d1d5db; }
+  .filter-btn.active { background: #344767 !important; color: #fff !important; }
+
+  /* Offcanvas form labels */
+  .offcanvas-body .field-label {
+    display: block;
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: #7b809a;
+    margin-bottom: .35rem;
+  }
+  .offcanvas-body .field-label .req {
+    color: #f5365c;
+    margin-left: .2rem;
+    font-size: .85rem;
+    line-height: 1;
+  }
+  .offcanvas-body .form-control,
+  .offcanvas-body .form-select {
+    font-size: .875rem;
+    color: #344767;
+    background-color: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: .5rem;
+    padding: .55rem .75rem;
+  }
+  .offcanvas-body .form-control:focus,
+  .offcanvas-body .form-select:focus {
+    background-color: #fff;
+    border-color: #344767;
+    box-shadow: 0 0 0 2px rgba(52,71,103,.12);
+  }
+  .offcanvas-body textarea.form-control { resize: vertical; }
+  .required-note {
+    font-size: .7rem;
+    color: #7b809a;
+  }
+  .required-note .req { color: #f5365c; font-size: .85rem; line-height:1; }
+</style>
+<link rel="stylesheet" href="{% static 'css/custom-combo.css' %}">
+{% endblock extrastyle %}
 
 {% block content %}
 
 <div class="container-fluid py-4">
-  <!-- Add Patient Card -->
-  <div class="row">
-    <div class="col-12">
-      <div class="card my-4">
-        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
-          <div class="bg-gradient-success shadow-primary border-radius-lg pt-4 pb-3">
-            <h6 class="text-white text-capitalize ps-3">Añadir Paciente</h6>
-          </div>
-        </div>
-        <div class="card-body px-4 pb-2">
-          <!-- Display messages if any -->
-          {% if messages %}
-            {% for message in messages %}
-              <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %} text-white" role="alert">
-                {{ message }}
-              </div>
-            {% endfor %}
-          {% endif %}
 
-          <!-- Patient Form -->
-          <form method="post">
-            {% csrf_token %}
-            <div class="row">
-              <div class="col-md-6">
-                <div class="input-group input-group-outline my-3">
-                  <label class="form-label">Nombre</label>
-                  <input type="text" name="first_name" class="form-control" required>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="input-group input-group-outline my-3">
-                  <label class="form-label">Apellido</label>
-                  <input type="text" name="last_name" class="form-control" required>
-                </div>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-md-6">
-                <div class="input-group input-group-outline my-3">
-                  <label class="form-label">Email</label>
-                  <input type="email" name="email" class="form-control">
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="input-group input-group-outline my-3">
-                  <label class="form-label">Teléfono</label>
-                  <input type="tel" name="phone" class="form-control">
-                </div>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-md-6">
-                <div class="input-group input-group-static mb-4">
-                  <label>Fecha de nacimiento</label>
-                  <input type="date" name="date_of_birth" class="form-control">
-                </div>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-12">
-                <div class="input-group input-group-static mb-4">
-                  <label>Dirección</label>
-                  <textarea name="address" class="form-control" rows="4"></textarea>
-                </div>
-              </div>
-            </div>
-            <!-- Only show for admins -->
-            {% if is_admin %}
-            <div class="row">
-              <div class="col-md-6">
-                <div class="input-group input-group-static mb-4">
-                  <label for="professional">Profesional asignado</label>
-                  <select name="professional" class="form-control" required>
-                    <option value="">Seleccionar profesional</option>
-                    {% for prof in all_professionals %}
-                      <option value="{{ prof.id }}">{{ prof.first_name }} {{ prof.last_name }} ({{ prof.get_role_display }})</option>
-                    {% endfor %}
-                  </select>
-                </div>
-              </div>
-            </div>
-            {% endif %}
-            <div class="text-center">
-                <button type="submit" class="btn btn-outline-success w-100 my-4 mb-2">Añadir Paciente</button>
-            </div>
-          </form>
+  <!-- Page Header -->
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-4 gap-3">
+    <div>
+      <h4 class="mb-0 font-weight-bolder">Pacientes</h4>
+      <p class="text-sm text-secondary mb-0">Gestiona el registro de pacientes</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <div class="d-flex align-items-center bg-white shadow-sm px-3 py-2 gap-2" style="border-radius:.75rem;min-width:240px;">
+        <i class="material-symbols-rounded text-secondary" style="font-size:1.1rem;flex-shrink:0">search</i>
+        <input type="text" id="patientSearch" class="border-0 bg-transparent p-0 w-100 text-sm"
+               placeholder="Buscar paciente..." autocomplete="off" style="outline:none;">
+      </div>
+      <button class="btn bg-gradient-dark mb-0 d-flex align-items-center gap-1" data-bs-toggle="offcanvas" data-bs-target="#addPatientCanvas">
+        <i class="material-symbols-rounded" style="font-size:1.1rem">person_add</i>
+        Nuevo Paciente
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats row -->
+  <div class="row g-3 mb-4" id="statsRow">
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body d-flex align-items-center gap-3 py-3">
+          <div class="avatar-circle" style="background:linear-gradient(195deg,#42424a,#191919);width:44px;height:44px;font-size:1rem;">
+            <i class="material-symbols-rounded text-white" style="font-size:1.2rem">group</i>
+          </div>
+          <div>
+            <p class="text-xs text-secondary mb-0">Total Pacientes</p>
+            <h5 class="mb-0 font-weight-bolder">{{ patients|length }}</h5>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Patients List Card -->
-  <div class="row">
-    <div class="col-12">
-      <div class="card my-4">
-        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
-          <div class="bg-gradient-success shadow-primary border-radius-lg pt-4 pb-3">
-            <h6 class="text-white text-capitalize ps-3">Pacientes</h6>
+  <!-- Patient Cards Grid -->
+  <div class="row g-3" id="patientGrid">
+    {% for patient in patients %}
+    {% with initials=patient.first_name|slice:":1" %}
+    {% with color=patient.color|default:"#344767" %}
+    <div class="col-12 col-sm-6 col-lg-4 col-xl-3 patient-item"
+         data-name="{{ patient.first_name|lower }} {{ patient.last_name|lower }}"
+         data-email="{{ patient.email|lower|default:'' }}"
+         data-phone="{{ patient.phone|default:'' }}">
+      <div class="card patient-card shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex align-items-start gap-3 mb-3">
+            <div class="avatar-circle" style="background:{{ color }};">
+              {{ patient.first_name|slice:":1" }}{{ patient.last_name|slice:":1" }}
+            </div>
+            <div class="flex-grow-1 min-w-0">
+              <h6 class="mb-0 text-truncate">{{ patient.first_name }} {{ patient.last_name }}</h6>
+              {% if patient.professional %}
+                <span class="badge badge-pro bg-gradient-info mt-1">{{ patient.professional.first_name }} {{ patient.professional.last_name|slice:":1" }}.</span>
+              {% else %}
+                <span class="badge badge-pro bg-gradient-secondary mt-1">Sin asignar</span>
+              {% endif %}
+            </div>
           </div>
-        </div>
-        <div class="card-body px-0 pb-2">
-          <div class="table-responsive p-0">
-            <table class="table align-items-center mb-0">
-              <thead>
-                <tr>
-                  <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Paciente</th>
-                  <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Contacto</th>
-                  <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Fecha de nacimiento</th>
-                  <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Profesional</th>
-                  <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Creado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for patient in patients %}
-                <tr>
-                  <td>
-                    <div class="d-flex px-2 py-1">
-                      <div class="d-flex flex-column justify-content-center">
-                        <h6 class="mb-0 text-sm">{{ patient.first_name }} {{ patient.last_name }}</h6>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <p class="text-xs font-weight-bold mb-0">{{ patient.email }}</p>
-                    <p class="text-xs text-secondary mb-0">{{ patient.phone }}</p>
-                  </td>
-                  <td class="align-middle text-center text-sm">
-                    <p class="text-xs font-weight-bold mb-0">{{ patient.date_of_birth|date:"d/m/Y" }}</p>
-                  </td>
-                    <td class="align-middle text-center">
-                    {% if patient.professional %}
-                      <span class="text-secondary text-xs font-weight-bold">{{ patient.professional.first_name }} {{ patient.professional.last_name }}</span>
-                    {% else %}
-                      <span class="text-secondary text-xs font-weight-bold">No asignado</span>
-                    {% endif %}
-                    </td>
-                  <td class="align-middle text-center">
-                    <span class="text-secondary text-xs font-weight-bold">{{ patient.created_at|date:"d/m/Y" }}</span>
-                  </td>
-                    <td class="align-middle text-center">
-                      <a href="{% url 'edit_patient' patient.id %}" class="btn btn-sm bg-gradient-info me-1">
-                        <i class="material-symbols-rounded opacity-10">edit</i>
-                      </a>
-                      <a href="#" data-bs-toggle="modal" data-bs-target="#deleteModal{{ patient.id }}" class="btn btn-sm bg-gradient-danger">
-                        <i class="material-symbols-rounded opacity-10">delete</i>
-                      </a>
 
-                      <!-- Delete Confirmation Modal -->
-                      <div class="modal fade" id="deleteModal{{ patient.id }}" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
-                        <div class="modal-dialog">
-                          <div class="modal-content">
-                            <div class="modal-header">
-                              <h5 class="modal-title" id="deleteModalLabel">Confirmar eliminación</h5>
-                              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                              ¿Estás seguro que deseas eliminar al paciente {{ patient.first_name }} {{ patient.last_name }}?
-                            </div>
-                            <div class="modal-footer">
-                              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                              <form action="{% url 'delete_patient' patient.id %}" method="post" style="display: inline;">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-danger">Eliminar</button>
-                              </form>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                  <td colspan="4" class="text-center py-4">No hay pacientes registrados</td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
+          <ul class="list-unstyled mb-0 text-sm">
+            {% if patient.email %}
+            <li class="d-flex align-items-center gap-2 mb-1 text-secondary">
+              <i class="material-symbols-rounded" style="font-size:.95rem">email</i>
+              <span class="text-truncate">{{ patient.email }}</span>
+            </li>
+            {% endif %}
+            {% if patient.phone %}
+            <li class="d-flex align-items-center gap-2 mb-1 text-secondary">
+              <i class="material-symbols-rounded" style="font-size:.95rem">phone</i>
+              <span>{{ patient.phone }}</span>
+            </li>
+            {% endif %}
+            {% if patient.date_of_birth %}
+            <li class="d-flex align-items-center gap-2 text-secondary">
+              <i class="material-symbols-rounded" style="font-size:.95rem">cake</i>
+              <span>{{ patient.date_of_birth|date:"d/m/Y" }}</span>
+            </li>
+            {% endif %}
+          </ul>
+        </div>
+        <div class="card-footer d-flex gap-2 py-2 px-3">
+          <a href="{% url 'edit_patient' patient.id %}" class="btn btn-sm bg-gradient-dark mb-0 flex-grow-1">
+            <i class="material-symbols-rounded me-1" style="font-size:.9rem">edit</i>Editar
+          </a>
+          <button type="button" class="btn btn-sm bg-gradient-danger mb-0"
+                  data-bs-toggle="modal" data-bs-target="#delModal{{ patient.id }}" title="Eliminar">
+            <i class="material-symbols-rounded" style="font-size:.9rem">delete</i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Delete Modal -->
+      <div class="modal fade" id="delModal{{ patient.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+              <h5 class="modal-title">¿Eliminar paciente?</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pt-1">
+              <p class="text-secondary text-sm">Esta acción eliminará permanentemente a
+                <strong>{{ patient.first_name }} {{ patient.last_name }}</strong>
+                y todos sus registros.</p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+              <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancelar</button>
+              <form action="{% url 'delete_patient' patient.id %}" method="post" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm bg-gradient-danger">Eliminar</button>
+              </form>
+            </div>
           </div>
         </div>
       </div>
     </div>
+    {% endwith %}{% endwith %}
+    {% empty %}
+    <div class="col-12">
+      <div class="text-center empty-state">
+        <i class="material-symbols-rounded d-block mb-3">person_off</i>
+        <h5 class="text-secondary">No hay pacientes registrados</h5>
+        <p class="text-sm text-secondary">Haz clic en <strong>Nuevo Paciente</strong> para añadir el primero.</p>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- No results message -->
+  <div id="noResults" class="text-center empty-state d-none">
+    <i class="material-symbols-rounded d-block mb-3">search_off</i>
+    <h5 class="text-secondary">Sin resultados</h5>
+    <p class="text-sm text-secondary">No se encontraron pacientes con ese criterio.</p>
+  </div>
+
+</div>
+
+<!-- ===================== Off-Canvas: Nuevo Paciente ===================== -->
+<div class="offcanvas offcanvas-end shadow-lg" tabindex="-1" id="addPatientCanvas">
+  <div class="offcanvas-header border-bottom">
+    <div class="d-flex align-items-center gap-2">
+      <div class="avatar-circle" style="background:#344767;width:36px;height:36px;font-size:.9rem;">
+        <i class="material-symbols-rounded text-white" style="font-size:1rem">person_add</i>
+      </div>
+      <h6 class="mb-0">Nuevo Paciente</h6>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+  </div>
+  <div class="offcanvas-body">
+    <p class="required-note mb-3">Los campos marcados con <span class="req">*</span> son obligatorios.</p>
+    <form method="post" id="addPatientForm">
+      {% csrf_token %}
+
+      <p class="text-xs text-uppercase text-secondary font-weight-bolder mb-3 mt-1">Información personal</p>
+      <div class="row g-3">
+        <div class="col-6">
+          <label class="field-label">Nombre <span class="req">*</span></label>
+          <input type="text" name="first_name" class="form-control" required placeholder="Ej. Juan">
+        </div>
+        <div class="col-6">
+          <label class="field-label">Apellido <span class="req">*</span></label>
+          <input type="text" name="last_name" class="form-control" required placeholder="Ej. Pérez">
+        </div>
+        <div class="col-12">
+          <label class="field-label">Fecha de nacimiento</label>
+          <input type="date" name="date_of_birth" class="form-control">
+        </div>
+      </div>
+
+      <hr class="my-3">
+      <p class="text-xs text-uppercase text-secondary font-weight-bolder mb-3">Contacto</p>
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="field-label">Email</label>
+          <input type="email" name="email" class="form-control" placeholder="correo@ejemplo.com">
+        </div>
+        <div class="col-12">
+          <label class="field-label">Teléfono</label>
+          <input type="tel" name="phone" class="form-control" placeholder="+591 xxxxxxxx">
+        </div>
+        <div class="col-12">
+          <label class="field-label">Dirección</label>
+          <textarea name="address" class="form-control" rows="2" placeholder="Calle, ciudad..."></textarea>
+        </div>
+      </div>
+
+      {% if is_admin %}
+      <hr class="my-3">
+      <p class="text-xs text-uppercase text-secondary font-weight-bolder mb-3">Asignación</p>
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="field-label">Profesional asignado</label>
+          <p class="text-xs text-secondary mb-1" style="margin-top:-.1rem">Opcional — puede asignarse después.</p>
+
+          <!-- Hidden real input submitted with form -->
+          <input type="hidden" name="professional" id="professionalValue">
+
+          <!-- Custom combobox -->
+          <div class="custom-combo" id="professionalCombo">
+            <div class="custom-combo-trigger" id="professionalTrigger" tabindex="0" role="combobox" aria-haspopup="listbox" aria-expanded="false">
+              <div class="d-flex align-items-center gap-2" id="professionalDisplay">
+                <span class="placeholder-text">Seleccionar profesional</span>
+              </div>
+              <i class="material-symbols-rounded combo-arrow">keyboard_arrow_down</i>
+            </div>
+            <div class="custom-combo-dropdown" id="professionalDropdown" role="listbox">
+              <div class="combo-search-wrap">
+                <i class="material-symbols-rounded">search</i>
+                <input type="text" class="combo-search-input" id="professionalSearch" placeholder="Buscar..." autocomplete="off">
+              </div>
+              <div class="combo-options" id="professionalOptions">
+                <div class="combo-option"
+                     data-value=""
+                     data-name="Sin asignar"
+                     data-role=""
+                     data-initials="—"
+                     data-search="sin asignar"
+                     role="option">
+                  <div class="combo-avatar" style="background:#9e9e9e;width:26px;height:26px;font-size:.65rem;">—</div>
+                  <span class="combo-name" style="color:#7b809a;font-style:italic;">Sin asignar</span>
+                </div>
+                {% for prof in all_professionals %}
+                <div class="combo-option"
+                     data-value="{{ prof.id }}"
+                     data-name="{{ prof.first_name }} {{ prof.last_name }}"
+                     data-role="{{ prof.get_role_display }}"
+                     data-initials="{{ prof.first_name|slice:':1' }}{{ prof.last_name|slice:':1' }}"
+                     data-search="{{ prof.first_name|lower }} {{ prof.last_name|lower }} {{ prof.get_role_display|lower }}"
+                     role="option">
+                  <div class="combo-avatar" style="background: hsl({{ forloop.counter0 }}00, 55%, 48%)">
+                    {{ prof.first_name|slice:":1" }}{{ prof.last_name|slice:":1" }}
+                  </div>
+                  <span class="combo-name">{{ prof.first_name }} {{ prof.last_name }}</span>
+                  <span class="combo-role">{{ prof.get_role_display }}</span>
+                </div>
+                {% endfor %}
+              </div>
+              <div class="combo-no-results" id="comboNoResults">Sin resultados</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="d-grid mt-4">
+        <button type="submit" class="btn bg-gradient-dark">
+          <i class="material-symbols-rounded me-1" style="font-size:1rem">save</i>
+          Guardar Paciente
+        </button>
+      </div>
+    </form>
   </div>
 </div>
 
 {% endblock content %}
+
+{% block extra_js %}
+<script src="{% static 'js/custom-combo.js' %}"></script>
+<script>
+  // ── Patient live search ──────────────────────────────────────────────
+  const searchInput = document.getElementById('patientSearch');
+  const items = document.querySelectorAll('.patient-item');
+  const noResults = document.getElementById('noResults');
+
+  if (searchInput) {
+    searchInput.addEventListener('input', function () {
+      const q = this.value.toLowerCase().trim();
+      let visible = 0;
+      items.forEach(item => {
+        const name = item.dataset.name || '';
+        const email = item.dataset.email || '';
+        const phone = item.dataset.phone || '';
+        const match = name.includes(q) || email.includes(q) || phone.includes(q);
+        item.style.display = match ? '' : 'none';
+        if (match) visible++;
+      });
+      noResults.classList.toggle('d-none', visible > 0 || items.length === 0);
+    });
+  }
+
+  // ── Custom professional combobox ─────────────────────────────────────
+  initCombo({
+    combo: 'professionalCombo', trigger: 'professionalTrigger',
+    dropdown: 'professionalDropdown', display: 'professionalDisplay',
+    hidden: 'professionalValue', search: 'professionalSearch',
+    options: 'professionalOptions', noResults: 'comboNoResults'
+  });
+</script>
+{% endblock extra_js %}

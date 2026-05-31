@@ -176,6 +176,8 @@ def edit_patient(request, patient_id):
         'patient': patient,
         'is_admin': is_admin,
         'all_professionals': all_professionals,
+        'segment': 'patients',
+        'breadcrumb_child': f"{patient.first_name} {patient.last_name}",
     }
 
     return render(request, 'pages/edit_patient.html', context)

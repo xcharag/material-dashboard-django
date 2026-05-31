@@ -1,0 +1,80 @@
+/* ── Custom Combobox ──────────────────────────────────────────────────── */
+.custom-combo { position: relative; }
+.custom-combo-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  font-size: .875rem;
+  color: #344767;
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: .5rem;
+  padding: .55rem .75rem;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.custom-combo-trigger:hover { border-color: #b0b0b0; }
+.custom-combo-trigger.open {
+  background: #fff;
+  border-color: #344767;
+  box-shadow: 0 0 0 2px rgba(52,71,103,.12);
+  border-radius: .5rem .5rem 0 0;
+}
+.custom-combo-trigger .placeholder-text { color: #9e9e9e; }
+.combo-avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .65rem; font-weight: 700; color: #fff;
+  flex-shrink: 0;
+}
+.custom-combo-trigger .combo-arrow {
+  font-size: 1.1rem; color: #7b809a; transition: transform .2s;
+  flex-shrink: 0;
+}
+.custom-combo-trigger.open .combo-arrow { transform: rotate(180deg); }
+.custom-combo-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%; left: 0; right: 0;
+  background: #fff;
+  border: 1px solid #344767;
+  border-top: none;
+  border-radius: 0 0 .5rem .5rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,.1);
+  z-index: 1060;
+  overflow: hidden;
+}
+.custom-combo-dropdown.open { display: block; }
+.combo-search-wrap {
+  padding: .5rem .6rem;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
+.combo-search-wrap i { color: #9e9e9e; font-size: .95rem; flex-shrink: 0; }
+.combo-search-input {
+  border: none; outline: none; background: transparent;
+  font-size: .8rem; color: #344767; width: 100%;
+}
+.combo-options { max-height: 200px; overflow-y: auto; }
+.combo-option {
+  display: flex; align-items: center; gap: .6rem;
+  padding: .55rem .75rem; cursor: pointer;
+  transition: background .1s;
+  font-size: .875rem; color: #344767;
+}
+.combo-option:hover { background: #f5f5f5; }
+.combo-option.selected { background: #f0f3f9; font-weight: 600; }
+.combo-option .combo-name { flex: 1; }
+.combo-option .combo-role {
+  font-size: .68rem; color: #7b809a;
+  background: #f0f0f0; border-radius: .35rem;
+  padding: .1rem .4rem;
+}
+.combo-no-results {
+  padding: .75rem; text-align: center;
+  font-size: .8rem; color: #9e9e9e; display: none;
+}

@@ -1,108 +1,334 @@
 {% extends "layouts/base.html" %}
+{% load static %}
 
-{% block title %} Editar Paciente {% endblock %}
+{% block title %} {{ patient.first_name }} {{ patient.last_name }} – Perfil {% endblock %}
+
+{% block extrastyle %}
+<style>
+  .profile-hero {
+    border-radius: 1rem;
+    background: linear-gradient(195deg, #42424a, #191919);
+    padding: 2rem 2rem 4.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .profile-hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+  .avatar-xl {
+    width: 96px; height: 96px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.2rem; font-weight: 700; color: #fff;
+    border: 4px solid rgba(255,255,255,.3);
+    position: relative; z-index: 1;
+  }
+  .section-label {
+    font-size: .68rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: #7b809a; margin-bottom: .75rem;
+  }
+  .info-row {
+    display: flex; align-items: flex-start; gap: .6rem;
+    padding: .5rem 0; border-bottom: 1px solid rgba(0,0,0,.05);
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-icon { color: #7b809a; flex-shrink: 0; font-size: 1rem; margin-top: .05rem; }
+  .nav-tabs-custom .nav-link {
+    color: #7b809a; border: none; padding: .6rem 1.25rem;
+    border-radius: .5rem; font-size: .85rem; font-weight: 600;
+  }
+  .nav-tabs-custom .nav-link.active { background: linear-gradient(195deg,#42424a,#191919); color: #fff; }
+  .nav-tabs-custom { border-bottom: none; gap: .25rem; }
+</style>
+<link rel="stylesheet" href="{% static 'css/custom-combo.css' %}">
+{% endblock extrastyle %}
 
 {% block content %}
-
 <div class="container-fluid py-4">
-  <div class="row">
-    <div class="col-12">
-      <div class="card my-4">
-        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
-          <div class="bg-gradient-info shadow-info border-radius-lg pt-4 pb-3">
-            <h6 class="text-white text-capitalize ps-3">Editar Paciente</h6>
+
+  <a href="{% url 'patients' %}" class="btn btn-sm btn-light mb-3 d-inline-flex align-items-center gap-1">
+    <i class="material-symbols-rounded" style="font-size:1rem">arrow_back</i> Volver a Pacientes
+  </a>
+
+  <!-- Hero Banner -->
+  <div class="profile-hero mb-0">
+    <div class="d-flex flex-column flex-md-row align-items-md-center gap-3">
+      <div class="avatar-xl" style="background:{{ patient.color|default:'#344767' }};">
+        {{ patient.first_name|slice:":1" }}{{ patient.last_name|slice:":1" }}
+      </div>
+      <div class="text-white z-index-1 position-relative">
+        <h4 class="mb-1 text-white">{{ patient.first_name }} {{ patient.last_name }}</h4>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          {% if patient.email %}
+          <span class="badge text-white" style="background:rgba(255,255,255,.2);font-size:.75rem;">
+            <i class="material-symbols-rounded me-1" style="font-size:.8rem;vertical-align:middle">email</i>{{ patient.email }}
+          </span>
+          {% endif %}
+          {% if patient.professional %}
+          <span class="badge text-white" style="background:rgba(255,255,255,.2);font-size:.75rem;">
+            <i class="material-symbols-rounded me-1" style="font-size:.8rem;vertical-align:middle">stethoscope</i>{{ patient.professional.first_name }} {{ patient.professional.last_name }}
+          </span>
+          {% endif %}
+          <span class="badge text-white" style="background:rgba(255,255,255,.2);font-size:.75rem;">
+            <i class="material-symbols-rounded me-1" style="font-size:.8rem;vertical-align:middle">calendar_today</i>Desde {{ patient.created_at|date:"M Y" }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab Nav -->
+  <div class="px-2 mt-3 mb-3">
+    <ul class="nav nav-tabs-custom" id="profileTabs">
+      <li class="nav-item">
+        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabInfo">
+          <i class="material-symbols-rounded me-1" style="font-size:.9rem;vertical-align:middle">person</i>Información
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabContact">
+          <i class="material-symbols-rounded me-1" style="font-size:.9rem;vertical-align:middle">contact_phone</i>Contacto
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabSettings">
+          <i class="material-symbols-rounded me-1" style="font-size:.9rem;vertical-align:middle">settings</i>Configuración
+        </button>
+      </li>
+    </ul>
+  </div>
+
+  <form method="post" id="editForm">
+    {% csrf_token %}
+    <div class="tab-content">
+
+      <!-- TAB: Información Personal -->
+      <div class="tab-pane fade show active" id="tabInfo">
+        <div class="row g-3">
+          <div class="col-12 col-lg-8">
+            <div class="card border-0 shadow-sm">
+              <div class="card-body p-4">
+                <p class="section-label">Información Personal</p>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label text-sm">Nombre <span class="text-danger">*</span></label>
+                    <input type="text" name="first_name" class="form-control" value="{{ patient.first_name }}" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label text-sm">Apellido <span class="text-danger">*</span></label>
+                    <input type="text" name="last_name" class="form-control" value="{{ patient.last_name }}" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label text-sm">Fecha de nacimiento</label>
+                    <input type="date" name="date_of_birth" class="form-control"
+                           value="{% if patient.date_of_birth %}{{ patient.date_of_birth|date:'Y-m-d' }}{% endif %}">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label text-sm">Color en calendario</label>
+                    <div class="d-flex align-items-center gap-2">
+                      <input type="color" name="color" class="form-control form-control-color"
+                             value="{{ patient.color|default:'#344767' }}" style="width:50px;height:38px;padding:.2rem;">
+                      <span class="text-secondary text-xs">Identificador visual en el calendario</span>
+                    </div>
+                  </div>
+                </div>
+                {% if is_admin %}
+                <hr class="my-4">
+                <p class="section-label">Asignación</p>
+                <div class="row g-3">
+                  <div class="col-md-8">
+                    <label class="form-label text-sm">Profesional asignado</label>
+
+                    <input type="hidden" name="professional" id="professionalValue">
+
+                    <div class="custom-combo" id="professionalCombo">
+                      <div class="custom-combo-trigger" id="professionalTrigger" tabindex="0" role="combobox" aria-haspopup="listbox" aria-expanded="false">
+                        <div class="d-flex align-items-center gap-2" id="professionalDisplay">
+                          <span class="placeholder-text">Seleccionar profesional</span>
+                        </div>
+                        <i class="material-symbols-rounded combo-arrow">keyboard_arrow_down</i>
+                      </div>
+                      <div class="custom-combo-dropdown" id="professionalDropdown" role="listbox">
+                        <div class="combo-search-wrap">
+                          <i class="material-symbols-rounded">search</i>
+                          <input type="text" class="combo-search-input" id="professionalSearch" placeholder="Buscar..." autocomplete="off">
+                        </div>
+                        <div class="combo-options" id="professionalOptions">
+                          <div class="combo-option"
+                               data-value=""
+                               data-name="Sin asignar"
+                               data-role=""
+                               data-initials="—"
+                               data-search="sin asignar"
+                               role="option">
+                            <div class="combo-avatar" style="background:#9e9e9e;width:26px;height:26px;font-size:.65rem;">—</div>
+                            <span class="combo-name" style="color:#7b809a;font-style:italic;">Sin asignar</span>
+                          </div>
+                          {% for prof in all_professionals %}
+                          <div class="combo-option"
+                               data-value="{{ prof.id }}"
+                               data-name="{{ prof.first_name }} {{ prof.last_name }}"
+                               data-role="{{ prof.get_role_display }}"
+                               data-initials="{{ prof.first_name|slice:':1' }}{{ prof.last_name|slice:':1' }}"
+                               data-search="{{ prof.first_name|lower }} {{ prof.last_name|lower }} {{ prof.get_role_display|lower }}"
+                               role="option">
+                            <div class="combo-avatar" style="background: hsl({{ forloop.counter0 }}00, 55%, 48%)">
+                              {{ prof.first_name|slice:":1" }}{{ prof.last_name|slice:":1" }}
+                            </div>
+                            <span class="combo-name">{{ prof.first_name }} {{ prof.last_name }}</span>
+                            <span class="combo-role">{{ prof.get_role_display }}</span>
+                          </div>
+                          {% endfor %}
+                        </div>
+                        <div class="combo-no-results" id="comboNoResults">Sin resultados</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-lg-4">
+            <div class="card border-0 shadow-sm">
+              <div class="card-body p-4">
+                <p class="section-label">Resumen</p>
+                <div class="info-row">
+                  <i class="material-symbols-rounded info-icon">badge</i>
+                  <div>
+                    <div class="text-xs text-secondary">ID Paciente</div>
+                    <div class="text-sm font-weight-bold">#{{ patient.id }}</div>
+                  </div>
+                </div>
+                <div class="info-row">
+                  <i class="material-symbols-rounded info-icon">calendar_today</i>
+                  <div>
+                    <div class="text-xs text-secondary">Registrado</div>
+                    <div class="text-sm font-weight-bold">{{ patient.created_at|date:"d/m/Y" }}</div>
+                  </div>
+                </div>
+                {% if patient.professional %}
+                <div class="info-row">
+                  <i class="material-symbols-rounded info-icon">stethoscope</i>
+                  <div>
+                    <div class="text-xs text-secondary">Profesional</div>
+                    <div class="text-sm font-weight-bold">{{ patient.professional.first_name }} {{ patient.professional.last_name }}</div>
+                    <div class="text-xs text-secondary">{{ patient.professional.get_role_display }}</div>
+                  </div>
+                </div>
+                {% endif %}
+              </div>
+            </div>
           </div>
         </div>
-        <div class="card-body px-4 pb-2">
-          <!-- Display messages if any -->
-          {% if messages %}
-            {% for message in messages %}
-              <div class="alert alert-{{ message.tags }} text-white" role="alert">
-                {{ message }}
-              </div>
-            {% endfor %}
-          {% endif %}
+      </div>
 
-          <!-- Patient Form -->
-          <form method="post">
-            {% csrf_token %}
-            <div class="row">
-              <div class="col-md-6">
-                <div class="input-group input-group-static mb-4">
-                  <label>Nombre</label>
-                  <input type="text" name="first_name" class="form-control" value="{{ patient.first_name }}" required>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="input-group input-group-static mb-4">
-                  <label>Apellido</label>
-                  <input type="text" name="last_name" class="form-control" value="{{ patient.last_name }}" required>
-                </div>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-md-6">
-                <div class="input-group input-group-static mb-4">
-                  <label>Email</label>
-                  <input type="email" name="email" class="form-control" value="{{ patient.email|default:'' }}">
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="input-group input-group-static mb-4">
-                  <label>Teléfono</label>
-                  <input type="tel" name="phone" class="form-control" value="{{ patient.phone|default:'' }}">
-                </div>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-md-6">
-                <div class="input-group input-group-static mb-4">
-                  <label>Fecha de nacimiento</label>
-                  <input type="date" name="date_of_birth" class="form-control" value="{% if patient.date_of_birth %}{{ patient.date_of_birth|date:'Y-m-d' }}{% endif %}">
-                </div>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-12">
-                <div class="input-group input-group-static mb-4">
-                  <label>Dirección</label>
-                  <textarea name="address" class="form-control" rows="4">{{ patient.address|default:'' }}</textarea>
+      <!-- TAB: Contacto -->
+      <div class="tab-pane fade" id="tabContact">
+        <div class="row g-3">
+          <div class="col-12 col-lg-8">
+            <div class="card border-0 shadow-sm">
+              <div class="card-body p-4">
+                <p class="section-label">Datos de Contacto</p>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label text-sm">Email</label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-light border-0">
+                        <i class="material-symbols-rounded text-secondary" style="font-size:1rem">email</i>
+                      </span>
+                      <input type="email" name="email" class="form-control border-start-0" value="{{ patient.email|default:'' }}" placeholder="correo@ejemplo.com">
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label text-sm">Teléfono</label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-light border-0">
+                        <i class="material-symbols-rounded text-secondary" style="font-size:1rem">phone</i>
+                      </span>
+                      <input type="tel" name="phone" class="form-control border-start-0" value="{{ patient.phone|default:'' }}" placeholder="+591 xxxxxxxx">
+                    </div>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label text-sm">Dirección</label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-light border-0 align-items-start pt-2">
+                        <i class="material-symbols-rounded text-secondary" style="font-size:1rem">location_on</i>
+                      </span>
+                      <textarea name="address" class="form-control border-start-0" rows="3" placeholder="Calle, ciudad, departamento...">{{ patient.address|default:'' }}</textarea>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-            <div class="row">
-              <div class="col-md-4">
-                <div class="input-group input-group-static mb-4">
-                  <label>Color (Calendario)</label>
-                  <input type="color" name="color" class="form-control form-control-color" value="{{ patient.color|default:'#4CAF50' }}" title="Color para identificar al paciente en el calendario">
-                </div>
-              </div>
-            </div>
-            <!-- Only show for admins -->
-            {% if is_admin %}
-            <div class="row">
-              <div class="col-md-6">
-                <div class="input-group input-group-static mb-4">
-                  <label for="professional">Profesional asignado</label>
-                  <select name="professional" class="form-control">
-                    <option value="">Seleccionar profesional</option>
-                    {% for prof in all_professionals %}
-                      <option value="{{ prof.id }}" {% if patient.professional_id == prof.id %}selected{% endif %}>{{ prof.first_name }} {{ prof.last_name }} ({{ prof.get_role_display }})</option>
-                    {% endfor %}
-                  </select>
-                </div>
-              </div>
-            </div>
-            {% endif %}
-            <div class="text-center">
-              <a href="{% url 'patients' %}" class="btn btn-outline-secondary my-4 mb-2 me-2">Cancelar</a>
-              <button type="submit" class="btn bg-gradient-info my-4 mb-2">Guardar Cambios</button>
-            </div>
-          </form>
+          </div>
         </div>
+      </div>
+
+      <!-- TAB: Configuración / Zona de peligro -->
+      <div class="tab-pane fade" id="tabSettings">
+        <div class="col-12 col-lg-8">
+          <div class="card border-0 shadow-sm" style="border:1px solid #fee2e2 !important;">
+            <div class="card-body p-4">
+              <p class="section-label text-danger">Zona de Peligro</p>
+              <p class="text-sm text-secondary mb-3">Eliminar este paciente borrará todos sus registros de consultas, notas y documentos de forma permanente.</p>
+              <button type="button" class="btn btn-sm bg-gradient-danger"
+                      data-bs-toggle="modal" data-bs-target="#delPatientModal">
+                <i class="material-symbols-rounded me-1" style="font-size:.9rem">delete_forever</i>
+                Eliminar Paciente
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /tab-content -->
+
+    <!-- Save Bar -->
+    <div class="d-flex justify-content-end gap-2 mt-4">
+      <a href="{% url 'patients' %}" class="btn btn-light">Cancelar</a>
+      <button type="submit" class="btn bg-gradient-dark">
+        <i class="material-symbols-rounded me-1" style="font-size:1rem">save</i>Guardar Cambios
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal fade" id="delPatientModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0">
+        <h5 class="modal-title">¿Eliminar paciente?</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body pt-0">
+        <p class="text-secondary text-sm">Esta acción eliminará permanentemente a
+          <strong>{{ patient.first_name }} {{ patient.last_name }}</strong> y no se puede deshacer.</p>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <form action="{% url 'delete_patient' patient.id %}" method="post" class="d-inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm bg-gradient-danger">Eliminar</button>
+        </form>
       </div>
     </div>
   </div>
 </div>
 
 {% endblock content %}
+
+{% block extra_js %}
+<script src="{% static 'js/custom-combo.js' %}"></script>
+<script>
+  initCombo({
+    combo: 'professionalCombo', trigger: 'professionalTrigger',
+    dropdown: 'professionalDropdown', display: 'professionalDisplay',
+    hidden: 'professionalValue', search: 'professionalSearch',
+    options: 'professionalOptions', noResults: 'comboNoResults'
+  }, '{{ patient.professional_id|default:"" }}');
+</script>
+{% endblock extra_js %}
