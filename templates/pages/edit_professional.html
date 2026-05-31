@@ -1,0 +1,288 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+
+{% block title %} {{ professional.first_name }} {{ professional.last_name }} – Perfil {% endblock %}
+
+{% block extrastyle %}
+<style>
+  .profile-hero {
+    border-radius: 1rem;
+    background: linear-gradient(195deg, #42424a, #191919);
+    padding: 2rem 2rem 4.5rem;
+    position: relative; overflow: hidden;
+  }
+  .profile-hero::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+  .avatar-xl {
+    width: 96px; height: 96px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.2rem; font-weight: 700; color: #fff;
+    border: 4px solid rgba(255,255,255,.3);
+    position: relative; z-index: 1;
+  }
+  .section-label {
+    font-size: .68rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: #7b809a; margin-bottom: .75rem;
+  }
+  .info-row {
+    display: flex; align-items: flex-start; gap: .6rem;
+    padding: .5rem 0; border-bottom: 1px solid rgba(0,0,0,.05);
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-icon { color: #7b809a; flex-shrink: 0; font-size: 1rem; margin-top: .05rem; }
+  .nav-tabs-custom .nav-link {
+    color: #7b809a; border: none; padding: .6rem 1.25rem;
+    border-radius: .5rem; font-size: .85rem; font-weight: 600;
+  }
+  .nav-tabs-custom .nav-link.active { background: linear-gradient(195deg,#42424a,#191919); color: #fff; }
+  .nav-tabs-custom { border-bottom: none; gap: .25rem; }
+</style>
+{% endblock extrastyle %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <a href="{% url 'professionals' %}" class="btn btn-sm btn-light mb-3 d-inline-flex align-items-center gap-1">
+    <i class="material-symbols-rounded" style="font-size:.95rem">arrow_back</i> Volver
+  </a>
+
+  <!-- Hero Banner -->
+  <div class="profile-hero mb-0">
+    <div class="d-flex flex-column flex-md-row align-items-md-center gap-3">
+      <div class="avatar-xl"
+           style="background:{% if professional.role == 'psychologist' %}#1a73e8{% else %}#7c3aed{% endif %}">
+        {{ professional.first_name|slice:":1" }}{{ professional.last_name|slice:":1" }}
+      </div>
+      <div class="text-white z-index-1 position-relative">
+        <h4 class="mb-1 text-white">{{ professional.first_name }} {{ professional.last_name }}</h4>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <span class="badge text-white" style="background:rgba(255,255,255,.2);font-size:.75rem;">
+            <i class="material-symbols-rounded me-1" style="font-size:.8rem;vertical-align:middle">stethoscope</i>
+            {{ professional.get_role_display }}
+          </span>
+          {% if professional.specialty %}
+          <span class="badge text-white" style="background:rgba(255,255,255,.2);font-size:.75rem;">
+            <i class="material-symbols-rounded me-1" style="font-size:.8rem;vertical-align:middle">school</i>
+            {{ professional.specialty }}
+          </span>
+          {% endif %}
+          {% if professional.email %}
+          <span class="badge text-white" style="background:rgba(255,255,255,.2);font-size:.75rem;">
+            <i class="material-symbols-rounded me-1" style="font-size:.8rem;vertical-align:middle">email</i>
+            {{ professional.email }}
+          </span>
+          {% endif %}
+          <span class="badge text-white" style="background:rgba(255,255,255,.2);font-size:.75rem;">
+            <i class="material-symbols-rounded me-1" style="font-size:.8rem;vertical-align:middle">calendar_today</i>
+            Desde {{ professional.created_at|date:"M Y" }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab Nav -->
+  <div class="px-2 mt-3 mb-3">
+    <ul class="nav nav-tabs-custom" id="profileTabs">
+      <li class="nav-item">
+        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabInfo">
+          <i class="material-symbols-rounded me-1" style="font-size:.9rem;vertical-align:middle">person</i>Información
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabContact">
+          <i class="material-symbols-rounded me-1" style="font-size:.9rem;vertical-align:middle">contact_phone</i>Contacto
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabConfig">
+          <i class="material-symbols-rounded me-1" style="font-size:.9rem;vertical-align:middle">settings</i>Configuración
+        </button>
+      </li>
+    </ul>
+  </div>
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="tab-content" id="profileTabContent">
+
+      <!-- TAB: Información -->
+      <div class="tab-pane fade show active" id="tabInfo">
+        <div class="row g-3">
+          <div class="col-12 col-lg-8">
+            <div class="card border-0 shadow-sm">
+              <div class="card-body p-4">
+                <p class="section-label">Datos Profesionales</p>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label text-sm">Nombre <span class="text-danger">*</span></label>
+                    <input type="text" name="first_name" class="form-control"
+                           value="{{ professional.first_name }}" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label text-sm">Apellido <span class="text-danger">*</span></label>
+                    <input type="text" name="last_name" class="form-control"
+                           value="{{ professional.last_name }}" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label text-sm">Tipo</label>
+                    <select name="role" class="form-select">
+                      <option value="psychologist" {% if professional.role == 'psychologist' %}selected{% endif %}>Psicólogo/a</option>
+                      <option value="psychiatrist" {% if professional.role == 'psychiatrist' %}selected{% endif %}>Psiquiatra</option>
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label text-sm">Especialidad</label>
+                    <input type="text" name="specialty" class="form-control"
+                           value="{{ professional.specialty|default:'' }}"
+                           placeholder="Ej. Terapia cognitivo-conductual">
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label text-sm">Biografía</label>
+                    <textarea name="biography" class="form-control" rows="3"
+                              placeholder="Descripción breve del profesional...">{{ professional.biography|default:'' }}</textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-lg-4">
+            <div class="card border-0 shadow-sm">
+              <div class="card-body p-4">
+                <p class="section-label">Resumen</p>
+                <div class="info-row">
+                  <i class="material-symbols-rounded info-icon">badge</i>
+                  <div>
+                    <div class="text-xs text-secondary">ID Profesional</div>
+                    <div class="text-sm font-weight-bold">#{{ professional.id }}</div>
+                  </div>
+                </div>
+                <div class="info-row">
+                  <i class="material-symbols-rounded info-icon">calendar_today</i>
+                  <div>
+                    <div class="text-xs text-secondary">Registrado</div>
+                    <div class="text-sm font-weight-bold">{{ professional.created_at|date:"d/m/Y" }}</div>
+                  </div>
+                </div>
+                <div class="info-row">
+                  <i class="material-symbols-rounded info-icon">group</i>
+                  <div>
+                    <div class="text-xs text-secondary">Pacientes</div>
+                    <div class="text-sm font-weight-bold">{{ professional.patients.count }}</div>
+                  </div>
+                </div>
+                {% if professional.user %}
+                <div class="info-row">
+                  <i class="material-symbols-rounded info-icon">person</i>
+                  <div>
+                    <div class="text-xs text-secondary">Usuario del sistema</div>
+                    <div class="text-sm font-weight-bold">{{ professional.user.username }}</div>
+                  </div>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: Contacto -->
+      <div class="tab-pane fade" id="tabContact">
+        <div class="row g-3">
+          <div class="col-12 col-lg-8">
+            <div class="card border-0 shadow-sm">
+              <div class="card-body p-4">
+                <p class="section-label">Datos de Contacto</p>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label text-sm">Email</label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-light border-0">
+                        <i class="material-symbols-rounded text-secondary" style="font-size:1rem">email</i>
+                      </span>
+                      <input type="email" name="email" class="form-control border-start-0"
+                             value="{{ professional.email|default:'' }}" placeholder="correo@ejemplo.com">
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label text-sm">Teléfono</label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-light border-0">
+                        <i class="material-symbols-rounded text-secondary" style="font-size:1rem">phone</i>
+                      </span>
+                      <input type="tel" name="phone" class="form-control border-start-0"
+                             value="{{ professional.phone|default:'' }}" placeholder="+591 xxxxxxxx">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: Configuración -->
+      <div class="tab-pane fade" id="tabConfig">
+        <div class="row g-3">
+          <div class="col-12 col-lg-8">
+            <div class="card border-0 shadow-sm border-danger" style="border-color:#fee2e2 !important">
+              <div class="card-body p-4">
+                <p class="section-label text-danger">Zona de peligro</p>
+                <p class="text-sm text-secondary mb-3">
+                  Eliminar este profesional borrará también su cuenta de usuario del sistema.
+                  {% if professional.patients.count > 0 %}
+                  Sus <strong>{{ professional.patients.count }} paciente{{ professional.patients.count|pluralize:"s" }}</strong>
+                  quedarán sin asignar.
+                  {% endif %}
+                  Esta acción no se puede deshacer.
+                </p>
+                <button type="button" class="btn btn-sm bg-gradient-danger"
+                        data-bs-toggle="modal" data-bs-target="#delProfModal">
+                  <i class="material-symbols-rounded me-1" style="font-size:.9rem">delete_forever</i>
+                  Eliminar Profesional
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Save Bar -->
+    <div class="d-flex justify-content-end gap-2 mt-4">
+      <a href="{% url 'professionals' %}" class="btn btn-light">Cancelar</a>
+      <button type="submit" class="btn bg-gradient-dark">
+        <i class="material-symbols-rounded me-1" style="font-size:1rem">save</i>Guardar Cambios
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal fade" id="delProfModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0">
+        <h5 class="modal-title">¿Eliminar profesional?</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body pt-0">
+        <p class="text-secondary text-sm">Esta acción eliminará permanentemente a
+          <strong>{{ professional.first_name }} {{ professional.last_name }}</strong> y no se puede deshacer.</p>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <form action="{% url 'delete_professional' professional.id %}" method="post" class="d-inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm bg-gradient-danger">Eliminar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock content %}

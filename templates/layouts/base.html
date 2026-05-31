@@ -4,21 +4,25 @@
 {% get_direction as direction %}
 {% get_admin_setting as admin_setting %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 
 <head>
     {% include "includes/head.html" %}
+    <link rel="stylesheet" href="{% static 'css/page-loader.css' %}">
     {% block extrastyle %}{% endblock extrastyle %}
     {% block extrahead %}{% endblock extrahead %}
 </head>
 
-<body class="g-sidenav-show  bg-gray-100">
+<body class="g-sidenav-show bg-gray-100">
+
+  <!-- Top navigation progress bar -->
+  <div id="topProgressBar"></div>
 
   {% block sidebar %}
     {% include "includes/sidebar.html" %}
   {% endblock sidebar %}
 
-  <main class="main-content position-relative max-height-vh-100 h-100 border-radius-lg ">
+  <main class="main-content position-relative max-height-vh-100 h-100 border-radius-lg">
     {% block navigation %}
       {% include "includes/navigation.html" %}
     {% endblock navigation %}
@@ -30,6 +34,9 @@
     {% include "includes/configurator.html" %}
   {% endblock configurator %}
 
+  <!-- Toast notifications (top-right corner) -->
+  {% include "includes/toasts.html" %}
+
   {% include "includes/scripts.html" %}
 
   <script src="{% static 'js/page-loader.js' %}"></script>
@@ -37,10 +44,6 @@
 
   {% block extra_js %}{% endblock extra_js %}
 
-  {% include "includes/toasts.html" %}
-
-  <div id="topProgressBar"></div>
-  <link rel="stylesheet" href="{% static 'css/page-loader.css' %}">
-    </body>
+</body>
 
 </html>

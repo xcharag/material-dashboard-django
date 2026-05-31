@@ -297,6 +297,52 @@ def professionals(request):
 
 
 @login_required
+@user_passes_test(is_admin)
+def edit_professional(request, professional_id):
+    professional = get_object_or_404(Professional, id=professional_id)
+
+    if request.method == 'POST':
+        professional.first_name = request.POST.get('first_name', professional.first_name)
+        professional.last_name  = request.POST.get('last_name',  professional.last_name)
+        professional.role       = request.POST.get('role',       professional.role)
+        professional.specialty  = request.POST.get('specialty',  professional.specialty)
+        professional.email      = request.POST.get('email',      professional.email)
+        professional.phone      = request.POST.get('phone',      professional.phone)
+        professional.biography  = request.POST.get('biography',  professional.biography)
+        professional.save()
+
+        if professional.user:
+            professional.user.first_name = professional.first_name
+            professional.user.last_name  = professional.last_name
+            if professional.email:
+                professional.user.email = professional.email
+            professional.user.save()
+
+        messages.success(request, f'Profesional {professional.first_name} {professional.last_name} actualizado correctamente.')
+        return redirect('professionals')
+
+    return render(request, 'pages/edit_professional.html', {
+        'professional': professional,
+        'segment': 'profesional',
+        'breadcrumb_child': f"{professional.first_name} {professional.last_name}",
+    })
+
+
+@login_required
+@user_passes_test(is_admin)
+def delete_professional(request, professional_id):
+    professional = get_object_or_404(Professional, id=professional_id)
+    if request.method == 'POST':
+        name = f"{professional.first_name} {professional.last_name}"
+        if professional.user:
+            professional.user.delete()  # CASCADE deletes professional too
+        else:
+            professional.delete()
+        messages.success(request, f'Profesional {name} eliminado correctamente.')
+    return redirect('professionals')
+
+
+@login_required
 def my_patients(request):
     is_staff = request.user.is_staff
     prof = Professional.objects.filter(user=request.user).first()

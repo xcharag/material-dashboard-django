@@ -1,0 +1,16 @@
+{% load static %}
+{# Render Django messages as Bootstrap Toast elements in the top-right corner #}
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 9999" id="toastContainer">
+  {% for message in messages %}
+  <div class="toast align-items-center border-0 app-toast mb-2"
+       data-level="{{ message.tags }}"
+       role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body d-flex align-items-center gap-2">
+        {{ message }}
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+    </div>
+  </div>
+  {% endfor %}
+</div>

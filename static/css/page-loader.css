@@ -1,0 +1,56 @@
+/* ── Top Progress Bar ─────────────────────────────────────────────────── */
+#topProgressBar {
+  position: fixed;
+  top: 0; left: 0;
+  width: 0%;
+  height: 3px;
+  background: linear-gradient(90deg, #344767, #67748e, #344767);
+  background-size: 200% 100%;
+  z-index: 99999;
+  transition: width .25s ease, opacity .4s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+#topProgressBar.loading {
+  opacity: 1;
+  animation: progressPulse 1.2s linear infinite;
+}
+@keyframes progressPulse {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Skeleton shimmer ─────────────────────────────────────────────────── */
+.skeleton {
+  background: #e9ecef;
+  border-radius: .5rem;
+  position: relative;
+  overflow: hidden;
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.7) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton-circle {
+  border-radius: 50% !important;
+}
+.skeleton-text { height: .8rem; margin-bottom: .35rem; }
+.skeleton-text.wide { width: 70%; }
+.skeleton-text.narrow { width: 40%; }
+.skeleton-text.full { width: 100%; }
+.skeleton-badge { height: 1.4rem; width: 4.5rem; border-radius: 1rem !important; }
+
+/* Content reveal */
+.page-content { transition: opacity .25s ease; }
+body:not(.page-loaded) .page-content { opacity: 0; }
+body.page-loaded .page-content { opacity: 1; }
+body:not(.page-loaded) .skeleton-grid { display: flex !important; }
+body.page-loaded .skeleton-grid { display: none !important; }
