@@ -119,17 +119,25 @@
           <i class="material-symbols-rounded me-1" style="font-size:.9rem;vertical-align:middle">arrow_back</i>Volver
         </a>
         {% if consultation.status != 'completed' %}
-        <form method="post" action="{% url 'end_session' consultation.id %}" class="d-inline">
-          {% csrf_token %}
-          <button type="submit" class="btn btn-sm btn-light text-success fw-bold"
-                  onclick="return confirm('¿Terminar esta cita?')">
-            <i class="material-symbols-rounded me-1" style="font-size:.9rem;vertical-align:middle">check_circle</i>Terminar Cita
-          </button>
-        </form>
+        <button type="button" class="btn btn-sm btn-light text-success fw-bold"
+                data-bs-toggle="modal" data-bs-target="#endSessionModal">
+          <i class="material-symbols-rounded me-1" style="font-size:.9rem;vertical-align:middle">check_circle</i>Terminar Cita
+        </button>
         {% endif %}
       </div>
     </div>
   </div>
+
+  {% if consultation.status == 'completed' %}
+  <!-- Retrospective entry banner -->
+  <div class="d-flex align-items-center gap-3 mt-3 p-3 rounded-3" style="background:#f0fdf4;border:1px solid #bbf7d0">
+    <i class="material-symbols-rounded text-success" style="font-size:1.4rem;flex-shrink:0">history_edu</i>
+    <div>
+      <div class="text-sm font-weight-bold" style="color:#166534">Registro retrospectivo</div>
+      <div class="text-xs" style="color:#15803d">Esta sesión ya fue terminada. Puedes seguir agregando notas y documentos para completar el registro (p.ej. apuntes en papel, exámenes entregados posteriormente).</div>
+    </div>
+  </div>
+  {% endif %}
 
   <!-- ── Main Content ────────────────────────────────────── -->
   <div class="row g-3 mt-1">
@@ -488,4 +496,35 @@
 
   </div><!-- /row -->
 </div>
+
+<!-- ── End Session Confirmation Modal ─────────────────── -->
+<div class="modal fade" id="endSessionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0 pb-0">
+        <div class="d-flex align-items-center gap-2">
+          <div style="width:36px;height:36px;border-radius:.6rem;background:linear-gradient(195deg,#2dce89,#1aae6f);display:flex;align-items:center;justify-content:center">
+            <i class="material-symbols-rounded text-white" style="font-size:1rem">check_circle</i>
+          </div>
+          <h6 class="modal-title mb-0">Terminar Cita</h6>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body pt-3">
+        <p class="text-sm mb-1">¿Estás seguro de que deseas marcar esta cita como <strong>terminada</strong>?</p>
+        <p class="text-xs text-secondary mb-0">Podrás seguir agregando notas y documentos después.</p>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancelar</button>
+        <form method="post" action="{% url 'end_session' consultation.id %}" class="d-inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm bg-gradient-success">
+            <i class="material-symbols-rounded me-1" style="font-size:.9rem;vertical-align:middle">check_circle</i>Sí, terminar
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock content %}

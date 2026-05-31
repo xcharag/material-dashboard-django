@@ -650,9 +650,10 @@ def start_session(request, consultation_id):
         messages.error(request, 'No tienes permiso para acceder a esta consulta.')
         return redirect('consult')
 
-    # Allow access when pending or already in-progress (attended); block only if completed/cancelled
-    if consultation.status not in ('pending', 'attended'):
-        messages.error(request, 'Esta consulta ya está finalizada o cancelada.')
+    # Allow access for pending, in-progress (attended), and completed (retrospective entry).
+    # Only cancelled consultations are fully blocked.
+    if consultation.status == 'cancelled':
+        messages.error(request, 'No se puede acceder a una consulta cancelada.')
         return redirect('consult')
 
     from .forms import NoteForm, AttachmentForm, NoteEditForm, AttachmentRenameForm  # local import to avoid circular in some reload cases
@@ -730,7 +731,7 @@ def start_session(request, consultation_id):
             messages.success(request, 'Adjunto eliminado correctamente.')
             return redirect('start_session', consultation_id=consultation.id)
 
-    # Advance status from pending → attended only on first entry
+    # Advance status from pending → attended only on first entry (never touch completed)
     if consultation.status == 'pending':
         consultation.status = 'attended'
         consultation.save(update_fields=['status'])

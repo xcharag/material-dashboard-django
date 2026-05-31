@@ -67,6 +67,11 @@
              class="btn btn-sm bg-gradient-info d-inline-flex align-items-center gap-1">
             <i class="material-symbols-rounded" style="font-size:.85rem">login</i>Continuar
           </a>
+          {% elif c.status == 'completed' %}
+          <a href="{% url 'start_session' c.id %}"
+             class="btn btn-sm bg-gradient-secondary d-inline-flex align-items-center gap-1">
+            <i class="material-symbols-rounded" style="font-size:.85rem">history_edu</i>Registrar
+          </a>
           {% else %}
           <span class="text-xs text-secondary">—</span>
           {% endif %}
