@@ -650,9 +650,9 @@ def start_session(request, consultation_id):
         messages.error(request, 'No tienes permiso para acceder a esta consulta.')
         return redirect('consult')
 
-    # Only allow starting sessions when the consultation is pending
-    if consultation.status != 'pending':
-        messages.error(request, 'Solo puedes iniciar consultas con estado Pendiente.')
+    # Allow access when pending or already in-progress (attended); block only if completed/cancelled
+    if consultation.status not in ('pending', 'attended'):
+        messages.error(request, 'Esta consulta ya está finalizada o cancelada.')
         return redirect('consult')
 
     from .forms import NoteForm, AttachmentForm, NoteEditForm, AttachmentRenameForm  # local import to avoid circular in some reload cases
@@ -730,7 +730,7 @@ def start_session(request, consultation_id):
             messages.success(request, 'Adjunto eliminado correctamente.')
             return redirect('start_session', consultation_id=consultation.id)
 
-    # Update status to attended when session starts if still pending
+    # Advance status from pending → attended only on first entry
     if consultation.status == 'pending':
         consultation.status = 'attended'
         consultation.save(update_fields=['status'])

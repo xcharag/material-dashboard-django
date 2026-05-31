@@ -1,312 +1,491 @@
-{% extends "layouts/base.html" %}
+﻿{% extends "layouts/base.html" %}
 {% load static %}
 {% load path_extras %}
-{% block title %} Sesión de Consulta {% endblock %}
+{% block title %} Sesión · {{ consultation.patient.first_name }} {{ consultation.patient.last_name }} {% endblock %}
+
+{% block extrastyle %}
+<style>
+  .session-hero {
+    border-radius: 1rem;
+    background: linear-gradient(195deg, #2dce89, #1aae6f);
+    padding: 1.75rem 2rem 4.5rem;
+    position: relative; overflow: hidden;
+  }
+  .session-hero::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+  .patient-avatar-lg {
+    width: 72px; height: 72px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem; font-weight: 700; color: #fff;
+    background: rgba(255,255,255,.2);
+    border: 3px solid rgba(255,255,255,.4);
+    flex-shrink: 0; position: relative; z-index: 1;
+  }
+  .hero-meta-pill {
+    display: inline-flex; align-items: center; gap: .35rem;
+    background: rgba(255,255,255,.18); color: #fff;
+    border-radius: 2rem; padding: .25rem .75rem;
+    font-size: .78rem; font-weight: 500; backdrop-filter: blur(4px);
+  }
+  .section-label {
+    font-size: .68rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: #7b809a; margin-bottom: .75rem;
+  }
+  .form-label.text-sm { font-size: .8rem; font-weight: 600; color: #344767; }
+  .form-control, .form-select {
+    font-size: .875rem; color: #344767; background-color: #f8f9fa;
+    border: 1px solid #e0e0e0 !important; border-radius: .5rem !important;
+    padding: .55rem .75rem;
+  }
+  .form-control:focus, .form-select:focus {
+    background-color: #fff !important; border-color: #344767 !important;
+    box-shadow: 0 0 0 2px rgba(52,71,103,.12) !important;
+  }
+  .note-card {
+    border: 1px solid rgba(0,0,0,.07) !important;
+    border-radius: .75rem !important;
+    transition: box-shadow .15s;
+  }
+  .note-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.08) !important; }
+  .att-item {
+    display: flex; align-items: center; gap: .65rem;
+    padding: .6rem .75rem;
+    border-radius: .6rem;
+    transition: background .12s;
+  }
+  .att-item:hover { background: #f5f7fb; }
+  .att-icon {
+    width: 34px; height: 34px; border-radius: .5rem;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 1.1rem;
+  }
+  .status-attended  { background: rgba(23,162,184,.15); color: #17a2b8; }
+  .status-completed { background: rgba(108,117,125,.15); color: #6c757d; }
+  .status-pending   { background: rgba(251,188,5,.2);    color: #d4870a; }
+  .status-cancelled { background: rgba(245,54,92,.15);   color: #f5365c; }
+</style>
+{% endblock extrastyle %}
+
 {% block content %}
 <div class="container-fluid py-4">
 
-  <div class="row mb-4">
-    <div class="col-12">
-      <div class="card my-4">
-        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-1">
-          <div class="bg-gradient-success shadow-success border-radius-lg pt-4 pb-3 d-flex justify-content-between align-items-center">
-            <div class="d-flex align-items-center">
-              <h6 class="text-white text-capitalize ps-3 mb-0">Sesión con {{ consultation.patient.first_name }} {{ consultation.patient.last_name }}</h6>
-              <span class="badge ms-3 bg-gradient-{% if consultation.status == 'pending' %}warning{% elif consultation.status == 'attended' %}info{% elif consultation.status == 'completed' %}secondary{% else %}danger{% endif %}">{{ consultation.get_status_display }}</span>
-            </div>
-            <div class="me-3">
-              <a href="{% url 'consult' %}" class="btn btn-sm btn-outline-light me-2">Volver</a>
-              {% if consultation.status != 'completed' %}
-              <form method="post" action="{% url 'end_session' consultation.id %}" class="d-inline">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-sm btn-light text-success">Terminar Cita</button>
-              </form>
-              {% endif %}
-            </div>
-          </div>
+  <!-- ── Hero Banner ─────────────────────────────────────── -->
+  <div class="session-hero mb-0">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+
+      <!-- Patient info -->
+      <div class="d-flex align-items-center gap-3 position-relative" style="z-index:1">
+        <div class="patient-avatar-lg">
+          {{ consultation.patient.first_name|slice:":1" }}{{ consultation.patient.last_name|slice:":1" }}
         </div>
-        <div class="card-body pt-3">
-          <div class="row mb-3">
-            <div class="col-md-3">
-              <p class="text-xs text-secondary mb-1">Fecha</p>
-              <h6 class="mb-0">{{ consultation.date|date:"d/m/Y" }}</h6>
-            </div>
-            <div class="col-md-3">
-              <p class="text-xs text-secondary mb-1">Hora</p>
-              <h6 class="mb-0">{{ consultation.time }}</h6>
-            </div>
-            <div class="col-md-3">
-              <p class="text-xs text-secondary mb-1">Consultorio</p>
-              <h6 class="mb-0">{{ consultation.consultory }}</h6>
-            </div>
-            <div class="col-md-3">
-              <p class="text-xs text-secondary mb-1">Profesional</p>
-              <h6 class="mb-0">{{ consultation.professional.first_name }} {{ consultation.professional.last_name }}</h6>
-            </div>
-          </div>
-          <hr>
-          <div class="row">
-            <!-- Notas -->
-            <div class="col-lg-6 mb-4">
-              <div class="card h-100 shadow-none border">
-                <div class="card-header pb-0">
-                  <h6 class="mb-0">Agregar Nota</h6>
-                  <p class="text-xs text-secondary mb-0">Crea notas para esta sesión. Usa un título opcional.</p>
-                </div>
-                <div class="card-body pt-3">
-                  <form method="post" class="mb-4">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="add_note">
-                    {{ note_form.non_field_errors }}
-                    <div class="mb-3">
-                      <label class="form-label fw-bold text-dark" for="{{ note_form.title.id_for_label }}">{{ note_form.fields.title.label }}</label>
-                      {{ note_form.title }}
-                      {% if note_form.title.errors %}
-                        <div class="text-danger small">{{ note_form.title.errors|join:', ' }}</div>
-                      {% endif %}
-                    </div>
-                    <div class="mb-3">
-                      <label class="form-label fw-bold text-dark" for="{{ note_form.content.id_for_label }}">{{ note_form.fields.content.label }}</label>
-                      {{ note_form.content }}
-                      {% if note_form.content.errors %}
-                        <div class="text-danger small">{{ note_form.content.errors|join:', ' }}</div>
-                      {% endif %}
-                    </div>
-                    <button type="submit" class="btn btn-success w-100">Guardar Nota</button>
-                  </form>
-                  <h6 class="mb-3">Notas de la Sesión</h6>
-                  <div class="list-group mb-0" style="max-height: 420px; overflow-y:auto;">
-                    {% for note in notes %}
-                      <div class="list-group-item border rounded-2 mb-2">
-                        <div class="d-flex justify-content-between align-items-start">
-                          <div>
-                            <strong class="d-block">{% if note.title %}{{ note.title }}{% else %}Nota #{{ note.id }}{% endif %}</strong>
-                            <small class="text-secondary">{{ note.created_at|date:"d/m/Y H:i" }} · {{ note.created_by.first_name }} {{ note.created_by.last_name }}</small>
-                          </div>
-                          <div class="ms-2">
-                            <button class="btn btn-sm btn-link text-primary p-1" data-bs-toggle="modal" data-bs-target="#editNoteModal-{{ note.id }}" title="Editar"><i class="material-icons" style="font-size:18px;">editar</i></button>
-                            <button class="btn btn-sm btn-link text-danger p-1" data-bs-toggle="modal" data-bs-target="#deleteNoteModal-{{ note.id }}" title="Eliminar"><i class="material-icons" style="font-size:18px;">eliminar</i></button>
-                          </div>
-                        </div>
-                        <p class="mb-1 mt-2" style="white-space: pre-wrap;">{{ note.content }}</p>
-                      </div>
-
-                      <!-- Edit Note Modal -->
-                      <div class="modal fade" id="editNoteModal-{{ note.id }}" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered">
-                          <div class="modal-content">
-                            <div class="modal-header">
-                              <h6 class="modal-title">Editar Nota</h6>
-                              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <form method="post">
-                              <div class="modal-body">
-                                {% csrf_token %}
-                                <input type="hidden" name="action" value="edit_note">
-                                <input type="hidden" name="note_id" value="{{ note.id }}">
-                                <div class="mb-3">
-                                  <label class="form-label">Título</label>
-                                  <input type="text" name="editnote-title" value="{{ note.title }}" class="form-control" placeholder="Título (opcional)">
-                                </div>
-                                <div class="mb-3">
-                                  <label class="form-label">Contenido</label>
-                                  <textarea name="editnote-content" rows="5" class="form-control" required>{{ note.content }}</textarea>
-                                </div>
-                              </div>
-                              <div class="modal-footer">
-                                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
-                                <button type="submit" class="btn btn-primary">Guardar Cambios</button>
-                              </div>
-                            </form>
-                          </div>
-                        </div>
-                      </div>
-
-                      <!-- Delete Note Modal -->
-                      <div class="modal fade" id="deleteNoteModal-{{ note.id }}" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered">
-                          <div class="modal-content">
-                            <div class="modal-header">
-                              <h6 class="modal-title">Eliminar Nota</h6>
-                              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <form method="post">
-                              <div class="modal-body">
-                                {% csrf_token %}
-                                <input type="hidden" name="action" value="delete_note">
-                                <input type="hidden" name="note_id" value="{{ note.id }}">
-                                <p class="mb-0">¿Estás seguro de que quieres eliminar esta nota?</p>
-                              </div>
-                              <div class="modal-footer">
-                                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
-                                <button type="submit" class="btn btn-danger">Eliminar</button>
-                              </div>
-                            </form>
-                          </div>
-                        </div>
-                      </div>
-                    {% empty %}
-                      <p class="text-secondary">No hay notas registradas aún.</p>
-                    {% endfor %}
-                  </div>
-                </div>
-              </div>
-            </div>
-            <!-- Adjuntos -->
-            <div class="col-lg-6 mb-4">
-              <div class="card h-100 shadow-none border">
-                <div class="card-header pb-0">
-                  <h6 class="mb-0">Agregar Documento</h6>
-                  <p class="text-xs text-secondary mb-0">PDF, DOC, DOCX, TXT, MD. Tamaño según configuración.</p>
-                </div>
-                <div class="card-body pt-3">
-                  <form method="post" enctype="multipart/form-data" class="mb-4">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="add_attachment">
-                    {{ attachment_form.non_field_errors }}
-                    <div class="mb-3">
-                      <label class="form-label fw-bold text-dark" for="{{ attachment_form.file_type.id_for_label }}">{{ attachment_form.fields.file_type.label }}</label>
-                      {{ attachment_form.file_type }}
-                      {% if attachment_form.file_type.errors %}
-                        <div class="text-danger small">{{ attachment_form.file_type.errors|join:', ' }}</div>
-                      {% endif %}
-                    </div>
-                    <div class="mb-3">
-                      {{ attachment_form.display_name.label_tag }}
-                      {{ attachment_form.display_name }}
-                      {% if attachment_form.display_name.errors %}
-                        <div class="text-danger small">{{ attachment_form.display_name.errors|join:', ' }}</div>
-                      {% endif %}
-                    </div>
-                    <div class="mb-3">
-                      {{ attachment_form.file.label_tag }}
-                      {{ attachment_form.file }}
-                      {% if attachment_form.file.errors %}
-                        <div class="text-danger small">{{ attachment_form.file.errors|join:', ' }}</div>
-                      {% endif %}
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100">Subir Documento</button>
-                  </form>
-                  <h6 class="mb-3">Documentos</h6>
-                  {% if grouped_attachments %}
-                    <div class="accordion" id="attachmentsAccordion">
-                      {% for type, items in grouped_attachments.items %}
-                        <div class="accordion-item mb-2">
-                          <h2 class="accordion-header" id="heading-{{ type }}">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ type }}" aria-expanded="false" aria-controls="collapse-{{ type }}">
-                              {{ type|title }} ({{ items|length }})
-                            </button>
-                          </h2>
-                          <div id="collapse-{{ type }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ type }}" data-bs-parent="#attachmentsAccordion">
-                            <div class="accordion-body p-2">
-                              <ul class="list-group">
-                                {% for att in items %}
-                                  <li class="list-group-item small">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                      <div class="me-2">
-                                        {% with ext=att.file.name|file_ext %}
-                                          {% if ext == 'pdf' %}
-                                            <i class="material-icons text-danger me-1" style="font-size:16px;">picture_as_pdf</i>
-                                          {% elif ext == 'doc' or ext == 'docx' %}
-                                            <i class="material-icons text-primary me-1" style="font-size:16px;">description</i>
-                                          {% elif ext == 'txt' or ext == 'md' %}
-                                            <i class="material-icons text-secondary me-1" style="font-size:16px;">article</i>
-                                          {% else %}
-                                            <i class="material-icons text-dark me-1" style="font-size:16px;">insert_drive_file</i>
-                                          {% endif %}
-                                        {% endwith %}
-                                        <a href="{{ att.file.url }}" target="_blank">{% if att.display_name %}{{ att.display_name }}{% else %}{{ att.file.name|basename }}{% endif %}</a>
-                                        <span class="text-secondary ms-2">{{ att.uploaded_at|date:"d/m/Y H:i" }}</span>
-                                      </div>
-                                      <div class="text-nowrap">
-                                        <button class="btn btn-sm btn-link text-primary p-1" data-bs-toggle="modal" data-bs-target="#editAttachmentModal-{{ att.id }}" title="Editar"><i class="material-icons" style="font-size:18px;">editar</i></button>
-                                        <button class="btn btn-sm btn-link text-danger p-1" data-bs-toggle="modal" data-bs-target="#deleteAttachmentModal-{{ att.id }}" title="Eliminar"><i class="material-icons" style="font-size:18px;">eliminar</i></button>
-                                      </div>
-                                    </div>
-                                  </li>
-
-                                  <!-- Edit Attachment Modal -->
-                                  <div class="modal fade" id="editAttachmentModal-{{ att.id }}" tabindex="-1" aria-hidden="true">
-                                    <div class="modal-dialog modal-dialog-centered">
-                                      <div class="modal-content">
-                                        <div class="modal-header">
-                                          <h6 class="modal-title">Editar Adjunto</h6>
-                                          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                        </div>
-                                        <form method="post">
-                                          <div class="modal-body">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="action" value="edit_attachment">
-                                            <input type="hidden" name="attachment_id" value="{{ att.id }}">
-                                            <div class="mb-3">
-                                              <label class="form-label">Nombre</label>
-                                              <input type="text" name="rename-display_name" value="{{ att.display_name }}" class="form-control" placeholder="Nombre (opcional)">
-                                            </div>
-                                            <div class="mb-3">
-                                              <label class="form-label">Tipo</label>
-                                              <select name="rename-file_type" class="form-select">
-                                                {% for val,label in att.TYPE_CHOICES %}
-                                                  <option value="{{ val }}" {% if val == att.file_type %}selected{% endif %}>{{ label }}</option>
-                                                {% endfor %}
-                                              </select>
-                                            </div>
-                                          </div>
-                                          <div class="modal-footer">
-                                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
-                                            <button type="submit" class="btn btn-primary">Guardar Cambios</button>
-                                          </div>
-                                        </form>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  <!-- Delete Attachment Modal -->
-                                  <div class="modal fade" id="deleteAttachmentModal-{{ att.id }}" tabindex="-1" aria-hidden="true">
-                                    <div class="modal-dialog modal-dialog-centered">
-                                      <div class="modal-content">
-                                        <div class="modal-header">
-                                          <h6 class="modal-title">Eliminar Adjunto</h6>
-                                          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                        </div>
-                                        <form method="post">
-                                          <div class="modal-body">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="action" value="delete_attachment">
-                                            <input type="hidden" name="attachment_id" value="{{ att.id }}">
-                                            <p class="mb-0">¿Estás seguro de que quieres eliminar este adjunto?</p>
-                                          </div>
-                                          <div class="modal-footer">
-                                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
-                                            <button type="submit" class="btn btn-danger">Eliminar</button>
-                                          </div>
-                                        </form>
-                                      </div>
-                                    </div>
-                                  </div>
-                                {% endfor %}
-                              </ul>
-                            </div>
-                          </div>
-                        </div>
-                      {% endfor %}
-                    </div>
-                  {% else %}
-                    <p class="text-secondary">No hay documentos subidos.</p>
-                  {% endif %}
-                </div>
-              </div>
-            </div>
+        <div class="text-white">
+          <div class="text-xs text-white opacity-7 mb-1">Sesión de Consulta</div>
+          <h4 class="mb-1 text-white">{{ consultation.patient.first_name }} {{ consultation.patient.last_name }}</h4>
+          <div class="d-flex flex-wrap gap-2 mt-2">
+            <span class="hero-meta-pill">
+              <i class="material-symbols-rounded" style="font-size:.85rem">calendar_today</i>
+              {{ consultation.date|date:"d/m/Y" }}
+            </span>
+            <span class="hero-meta-pill">
+              <i class="material-symbols-rounded" style="font-size:.85rem">schedule</i>
+              {{ consultation.time }}
+            </span>
+            <span class="hero-meta-pill">
+              <i class="material-symbols-rounded" style="font-size:.85rem">location_on</i>
+              {{ consultation.consultory }}
+            </span>
+            <span class="hero-meta-pill">
+              <i class="material-symbols-rounded" style="font-size:.85rem">stethoscope</i>
+              {{ consultation.professional.first_name }} {{ consultation.professional.last_name }}
+            </span>
+            <span class="badge px-2 py-1 rounded-pill
+              {% if consultation.status == 'pending' %}bg-warning text-dark
+              {% elif consultation.status == 'attended' %}bg-info text-white
+              {% elif consultation.status == 'completed' %}bg-secondary text-white
+              {% else %}bg-danger text-white{% endif %}"
+              style="font-size:.72rem">
+              {{ consultation.get_status_display }}
+            </span>
           </div>
         </div>
       </div>
+
+      <!-- Actions -->
+      <div class="d-flex gap-2 position-relative" style="z-index:1">
+        <a href="{% url 'consult' %}" class="btn btn-sm btn-outline-light">
+          <i class="material-symbols-rounded me-1" style="font-size:.9rem;vertical-align:middle">arrow_back</i>Volver
+        </a>
+        {% if consultation.status != 'completed' %}
+        <form method="post" action="{% url 'end_session' consultation.id %}" class="d-inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-light text-success fw-bold"
+                  onclick="return confirm('¿Terminar esta cita?')">
+            <i class="material-symbols-rounded me-1" style="font-size:.9rem;vertical-align:middle">check_circle</i>Terminar Cita
+          </button>
+        </form>
+        {% endif %}
+      </div>
     </div>
   </div>
-</div>
 
-<script>
-  document.addEventListener('DOMContentLoaded', function() {
-    var toastElList = [].slice.call(document.querySelectorAll('.toast'));
-    toastElList.map(function (toastEl) { return new bootstrap.Toast(toastEl).show(); });
-  });
-</script>
+  <!-- ── Main Content ────────────────────────────────────── -->
+  <div class="row g-3 mt-1">
+
+    <!-- ══ NOTES ════════════════════════════════════════════ -->
+    <div class="col-12 col-lg-6">
+
+      <!-- Add Note -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-4">
+          <p class="section-label">
+            <i class="material-symbols-rounded me-1" style="font-size:.85rem;vertical-align:middle">add_circle</i>
+            Nueva Nota
+          </p>
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_note">
+            <div class="mb-3">
+              <label class="form-label text-sm">Título <span class="text-secondary fw-normal">(opcional)</span></label>
+              {{ note_form.title }}
+              {% if note_form.title.errors %}
+              <div class="text-danger small mt-1">{{ note_form.title.errors|join:', ' }}</div>
+              {% endif %}
+            </div>
+            <div class="mb-3">
+              <label class="form-label text-sm">Contenido <span class="text-danger">*</span></label>
+              {{ note_form.content }}
+              {% if note_form.content.errors %}
+              <div class="text-danger small mt-1">{{ note_form.content.errors|join:', ' }}</div>
+              {% endif %}
+            </div>
+            <div class="d-flex justify-content-end">
+              <button type="submit" class="btn bg-gradient-success btn-sm">
+                <i class="material-symbols-rounded me-1" style="font-size:.9rem;vertical-align:middle">save</i>Guardar Nota
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Notes List -->
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-4">
+          <p class="section-label">
+            <i class="material-symbols-rounded me-1" style="font-size:.85rem;vertical-align:middle">notes</i>
+            Notas de la Sesión
+            {% if notes %}<span class="badge bg-light text-dark border ms-1">{{ notes|length }}</span>{% endif %}
+          </p>
+
+          {% for note in notes %}
+          <div class="note-card card shadow-none mb-3">
+            <div class="card-body p-3">
+              <div class="d-flex justify-content-between align-items-start gap-2">
+                <div class="flex-grow-1 min-width-0">
+                  <div class="text-sm font-weight-bold text-dark mb-1">
+                    {% if note.title %}{{ note.title }}{% else %}<span class="text-secondary">Nota #{{ note.id }}</span>{% endif %}
+                  </div>
+                  <div class="text-xs text-secondary mb-2">
+                    <i class="material-symbols-rounded me-1" style="font-size:.75rem;vertical-align:middle">person</i>
+                    {{ note.created_by.first_name }} {{ note.created_by.last_name }}
+                    &nbsp;·&nbsp;
+                    <i class="material-symbols-rounded me-1" style="font-size:.75rem;vertical-align:middle">schedule</i>
+                    {{ note.created_at|date:"d/m/Y H:i" }}
+                  </div>
+                  <p class="text-sm mb-0" style="white-space:pre-wrap;color:#495057">{{ note.content }}</p>
+                </div>
+                <div class="d-flex gap-1 flex-shrink-0">
+                  <button class="btn btn-sm btn-light p-1" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center"
+                          data-bs-toggle="modal" data-bs-target="#editNoteModal-{{ note.id }}" title="Editar">
+                    <i class="material-symbols-rounded" style="font-size:.9rem">edit</i>
+                  </button>
+                  <button class="btn btn-sm btn-light p-1" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:#f5365c"
+                          data-bs-toggle="modal" data-bs-target="#deleteNoteModal-{{ note.id }}" title="Eliminar">
+                    <i class="material-symbols-rounded" style="font-size:.9rem">delete</i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Edit Note Modal -->
+          <div class="modal fade" id="editNoteModal-{{ note.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content border-0 shadow">
+                <div class="modal-header border-0 pb-0">
+                  <div class="d-flex align-items-center gap-2">
+                    <div style="width:32px;height:32px;border-radius:.5rem;background:linear-gradient(195deg,#42424a,#191919);display:flex;align-items:center;justify-content:center">
+                      <i class="material-symbols-rounded text-white" style="font-size:.9rem">edit_note</i>
+                    </div>
+                    <h6 class="modal-title mb-0">Editar Nota</h6>
+                  </div>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="post">
+                  <div class="modal-body pt-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="edit_note">
+                    <input type="hidden" name="note_id" value="{{ note.id }}">
+                    <div class="mb-3">
+                      <label class="form-label text-sm">Título <span class="text-secondary fw-normal">(opcional)</span></label>
+                      <input type="text" name="editnote-title" value="{{ note.title }}" class="form-control" placeholder="Título (opcional)">
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label text-sm">Contenido <span class="text-danger">*</span></label>
+                      <textarea name="editnote-content" rows="5" class="form-control" required>{{ note.content }}</textarea>
+                    </div>
+                  </div>
+                  <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm bg-gradient-dark">
+                      <i class="material-symbols-rounded me-1" style="font-size:.9rem;vertical-align:middle">save</i>Guardar
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <!-- Delete Note Modal -->
+          <div class="modal fade" id="deleteNoteModal-{{ note.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-sm">
+              <div class="modal-content border-0 shadow">
+                <div class="modal-header border-0 pb-0">
+                  <div class="d-flex align-items-center gap-2">
+                    <div style="width:32px;height:32px;border-radius:.5rem;background:linear-gradient(195deg,#f5365c,#f56036);display:flex;align-items:center;justify-content:center">
+                      <i class="material-symbols-rounded text-white" style="font-size:.9rem">delete</i>
+                    </div>
+                    <h6 class="modal-title mb-0">Eliminar Nota</h6>
+                  </div>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="post">
+                  <div class="modal-body pt-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete_note">
+                    <input type="hidden" name="note_id" value="{{ note.id }}">
+                    <p class="text-sm mb-0">¿Eliminar la nota <strong>{% if note.title %}{{ note.title }}{% else %}#{{ note.id }}{% endif %}</strong>? Esta acción no se puede deshacer.</p>
+                  </div>
+                  <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm bg-gradient-danger">Eliminar</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          {% empty %}
+          <div class="text-center py-4">
+            <i class="material-symbols-rounded d-block mb-2" style="font-size:2.5rem;color:#c8ccd4">notes</i>
+            <p class="text-xs text-secondary mb-0">No hay notas registradas aún.</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ATTACHMENTS ══════════════════════════════════════ -->
+    <div class="col-12 col-lg-6">
+
+      <!-- Upload Document -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-4">
+          <p class="section-label">
+            <i class="material-symbols-rounded me-1" style="font-size:.85rem;vertical-align:middle">upload_file</i>
+            Subir Documento
+          </p>
+          <p class="text-xs text-secondary mb-3">Formatos: PDF, DOC, DOCX, TXT, MD.</p>
+          <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_attachment">
+            <div class="mb-3">
+              <label class="form-label text-sm">Tipo</label>
+              {{ attachment_form.file_type }}
+              {% if attachment_form.file_type.errors %}
+              <div class="text-danger small mt-1">{{ attachment_form.file_type.errors|join:', ' }}</div>
+              {% endif %}
+            </div>
+            <div class="mb-3">
+              <label class="form-label text-sm">Nombre de visualización <span class="text-secondary fw-normal">(opcional)</span></label>
+              {{ attachment_form.display_name }}
+              {% if attachment_form.display_name.errors %}
+              <div class="text-danger small mt-1">{{ attachment_form.display_name.errors|join:', ' }}</div>
+              {% endif %}
+            </div>
+            <div class="mb-3">
+              <label class="form-label text-sm">Archivo <span class="text-danger">*</span></label>
+              {{ attachment_form.file }}
+              {% if attachment_form.file.errors %}
+              <div class="text-danger small mt-1">{{ attachment_form.file.errors|join:', ' }}</div>
+              {% endif %}
+            </div>
+            <div class="d-flex justify-content-end">
+              <button type="submit" class="btn bg-gradient-info btn-sm text-white">
+                <i class="material-symbols-rounded me-1" style="font-size:.9rem;vertical-align:middle">upload</i>Subir Documento
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Documents List -->
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-4">
+          <p class="section-label">
+            <i class="material-symbols-rounded me-1" style="font-size:.85rem;vertical-align:middle">folder_open</i>
+            Documentos
+            {% if grouped_attachments %}
+            <span class="badge bg-light text-dark border ms-1">
+              {% with total=grouped_attachments.values|join:"," %}{{ grouped_attachments|length }}{% endwith %} categoría(s)
+            </span>
+            {% endif %}
+          </p>
+
+          {% if grouped_attachments %}
+          {% for type_key, items in grouped_attachments.items %}
+          <div class="mb-3">
+            <!-- Category header -->
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <span class="badge bg-light text-dark border text-xs" style="font-weight:600;font-size:.72rem">
+                {% if type_key == 'notas' %}<i class="material-symbols-rounded me-1" style="font-size:.8rem;vertical-align:middle">sticky_note_2</i>
+                {% elif type_key == 'examenes' %}<i class="material-symbols-rounded me-1" style="font-size:.8rem;vertical-align:middle">biotech</i>
+                {% elif type_key == 'resultados' %}<i class="material-symbols-rounded me-1" style="font-size:.8rem;vertical-align:middle">assessment</i>
+                {% else %}<i class="material-symbols-rounded me-1" style="font-size:.8rem;vertical-align:middle">folder</i>
+                {% endif %}
+                {{ type_key|title }} ({{ items|length }})
+              </span>
+            </div>
+
+            {% for att in items %}
+            <div class="att-item">
+              <!-- File type icon -->
+              {% with ext=att.file.name|file_ext %}
+              <div class="att-icon
+                {% if ext == 'pdf' %}bg-danger bg-opacity-10{% elif ext == 'doc' or ext == 'docx' %}bg-primary bg-opacity-10{% else %}bg-secondary bg-opacity-10{% endif %}">
+                <i class="material-symbols-rounded
+                  {% if ext == 'pdf' %}text-danger{% elif ext == 'doc' or ext == 'docx' %}text-primary{% else %}text-secondary{% endif %}">
+                  {% if ext == 'pdf' %}picture_as_pdf{% elif ext == 'doc' or ext == 'docx' %}description{% elif ext == 'txt' or ext == 'md' %}article{% else %}insert_drive_file{% endif %}
+                </i>
+              </div>
+              {% endwith %}
+
+              <!-- File info -->
+              <div class="flex-grow-1 min-width-0">
+                <a href="{{ att.file.url }}" target="_blank"
+                   class="text-sm font-weight-bold text-dark d-block text-truncate"
+                   style="text-decoration:none;max-width:180px"
+                   title="{% if att.display_name %}{{ att.display_name }}{% else %}{{ att.file.name|basename }}{% endif %}">
+                  {% if att.display_name %}{{ att.display_name }}{% else %}{{ att.file.name|basename }}{% endif %}
+                </a>
+                <div class="text-xs text-secondary">{{ att.uploaded_at|date:"d/m/Y H:i" }}</div>
+              </div>
+
+              <!-- Actions -->
+              <div class="d-flex gap-1 flex-shrink-0">
+                <a href="{{ att.file.url }}" target="_blank"
+                   class="btn btn-sm btn-light p-1" style="width:26px;height:26px;display:flex;align-items:center;justify-content:center" title="Descargar">
+                  <i class="material-symbols-rounded" style="font-size:.85rem">download</i>
+                </a>
+                <button class="btn btn-sm btn-light p-1" style="width:26px;height:26px;display:flex;align-items:center;justify-content:center"
+                        data-bs-toggle="modal" data-bs-target="#editAttModal-{{ att.id }}" title="Editar">
+                  <i class="material-symbols-rounded" style="font-size:.85rem">edit</i>
+                </button>
+                <button class="btn btn-sm btn-light p-1" style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;color:#f5365c"
+                        data-bs-toggle="modal" data-bs-target="#deleteAttModal-{{ att.id }}" title="Eliminar">
+                  <i class="material-symbols-rounded" style="font-size:.85rem">delete</i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Edit Attachment Modal -->
+            <div class="modal fade" id="editAttModal-{{ att.id }}" tabindex="-1" aria-hidden="true">
+              <div class="modal-dialog modal-dialog-centered modal-sm">
+                <div class="modal-content border-0 shadow">
+                  <div class="modal-header border-0 pb-0">
+                    <div class="d-flex align-items-center gap-2">
+                      <div style="width:32px;height:32px;border-radius:.5rem;background:linear-gradient(195deg,#42424a,#191919);display:flex;align-items:center;justify-content:center">
+                        <i class="material-symbols-rounded text-white" style="font-size:.9rem">edit</i>
+                      </div>
+                      <h6 class="modal-title mb-0">Editar Adjunto</h6>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                  </div>
+                  <form method="post">
+                    <div class="modal-body pt-3">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="edit_attachment">
+                      <input type="hidden" name="attachment_id" value="{{ att.id }}">
+                      <div class="mb-3">
+                        <label class="form-label text-sm">Nombre</label>
+                        <input type="text" name="rename-display_name" value="{{ att.display_name }}" class="form-control" placeholder="Nombre (opcional)">
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label text-sm">Tipo</label>
+                        <select name="rename-file_type" class="form-select">
+                          {% for val, label in att.TYPE_CHOICES %}
+                          <option value="{{ val }}" {% if val == att.file_type %}selected{% endif %}>{{ label }}</option>
+                          {% endfor %}
+                        </select>
+                      </div>
+                    </div>
+                    <div class="modal-footer border-0 pt-0">
+                      <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancelar</button>
+                      <button type="submit" class="btn btn-sm bg-gradient-dark">
+                        <i class="material-symbols-rounded me-1" style="font-size:.9rem;vertical-align:middle">save</i>Guardar
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+
+            <!-- Delete Attachment Modal -->
+            <div class="modal fade" id="deleteAttModal-{{ att.id }}" tabindex="-1" aria-hidden="true">
+              <div class="modal-dialog modal-dialog-centered modal-sm">
+                <div class="modal-content border-0 shadow">
+                  <div class="modal-header border-0 pb-0">
+                    <div class="d-flex align-items-center gap-2">
+                      <div style="width:32px;height:32px;border-radius:.5rem;background:linear-gradient(195deg,#f5365c,#f56036);display:flex;align-items:center;justify-content:center">
+                        <i class="material-symbols-rounded text-white" style="font-size:.9rem">delete</i>
+                      </div>
+                      <h6 class="modal-title mb-0">Eliminar Adjunto</h6>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                  </div>
+                  <form method="post">
+                    <div class="modal-body pt-2">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="delete_attachment">
+                      <input type="hidden" name="attachment_id" value="{{ att.id }}">
+                      <p class="text-sm mb-0">¿Eliminar <strong>{% if att.display_name %}{{ att.display_name }}{% else %}este adjunto{% endif %}</strong>? Esta acción no se puede deshacer.</p>
+                    </div>
+                    <div class="modal-footer border-0 pt-0">
+                      <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancelar</button>
+                      <button type="submit" class="btn btn-sm bg-gradient-danger">Eliminar</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+
+            {% endfor %}
+          </div>
+          {% endfor %}
+
+          {% else %}
+          <div class="text-center py-4">
+            <i class="material-symbols-rounded d-block mb-2" style="font-size:2.5rem;color:#c8ccd4">folder_open</i>
+            <p class="text-xs text-secondary mb-0">No hay documentos subidos aún.</p>
+          </div>
+          {% endif %}
+
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /row -->
+</div>
 {% endblock content %}

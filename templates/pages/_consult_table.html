@@ -62,6 +62,11 @@
              class="btn btn-sm bg-gradient-success d-inline-flex align-items-center gap-1">
             <i class="material-symbols-rounded" style="font-size:.85rem">play_arrow</i>Iniciar
           </a>
+          {% elif c.status == 'attended' %}
+          <a href="{% url 'start_session' c.id %}"
+             class="btn btn-sm bg-gradient-info d-inline-flex align-items-center gap-1">
+            <i class="material-symbols-rounded" style="font-size:.85rem">login</i>Continuar
+          </a>
           {% else %}
           <span class="text-xs text-secondary">—</span>
           {% endif %}
