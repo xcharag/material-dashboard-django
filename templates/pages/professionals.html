@@ -235,7 +235,12 @@
         </div>
         <div class="col-12">
           <label class="field-label">Especialidad</label>
-          <input type="text" name="specialty" class="form-control" placeholder="Ej. Terapia cognitivo-conductual">
+          <select name="specialty" class="form-select">
+            <option value="">Sin especialidad</option>
+            {% for spec in specialties %}
+            <option value="{{ spec.name }}">{{ spec.name }}</option>
+            {% endfor %}
+          </select>
         </div>
       </div>
 

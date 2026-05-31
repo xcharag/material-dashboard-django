@@ -163,6 +163,12 @@
           <h6 class="ps-4 ms-2 text-uppercase text-xs text-dark font-weight-bolder opacity-5">Configuraciones</h6>
         </li>
         <li class="nav-item">
+          <a class="nav-link {% if 'parameters' == segment %} active bg-gradient-dark text-white {% else %} text-dark {% endif %}" href="{% url 'parameters' %}">
+            <i class="material-symbols-rounded opacity-5">tune</i>
+            <span class="nav-link-text ms-1">Parámetros</span>
+          </a>
+        </li>
+        <li class="nav-item">
           <a class="nav-link {% if 'config_consultorios' == segment %} active bg-gradient-dark text-white {% else %} text-dark {% endif %}" href="{% url 'config_consultorios' %}">
             <i class="material-symbols-rounded opacity-5">meeting_room</i>
             <span class="nav-link-text ms-1">Consultorios</span>

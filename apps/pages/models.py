@@ -12,6 +12,20 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
+class Specialty(models.Model):
+    name = models.CharField(max_length=150, unique=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Especialidad'
+        verbose_name_plural = 'Especialidades'
+
+    def __str__(self):
+        return self.name
+
+
 class Patient(models.Model):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)

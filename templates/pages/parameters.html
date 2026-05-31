@@ -1,0 +1,176 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+
+{% block title %} Parámetros {% endblock %}
+
+{% block extrastyle %}
+<style>
+  .param-card { border: none; border-radius: 1rem; }
+  .param-table td, .param-table th { vertical-align: middle; }
+  .badge-active   { background: #d1fae5; color: #065f46; font-size: .7rem; padding: .3em .65em; border-radius: .4rem; }
+  .badge-inactive { background: #fee2e2; color: #991b1b; font-size: .7rem; padding: .3em .65em; border-radius: .4rem; }
+  .add-form-inline { background: #f8f9fa; border-radius: .75rem; padding: 1.25rem 1.5rem; }
+</style>
+{% endblock extrastyle %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+      <h5 class="mb-0 font-weight-bolder">Parámetros</h5>
+      <p class="text-sm text-secondary mb-0">Gestiona los valores de referencia del sistema</p>
+    </div>
+  </div>
+
+  <!-- ESPECIALIDADES SECTION -->
+  <div class="card param-card shadow-sm mb-4">
+    <div class="card-header d-flex align-items-center justify-content-between pb-0">
+      <div class="d-flex align-items-center gap-2">
+        <div class="icon icon-sm icon-shape bg-gradient-dark shadow-dark text-center border-radius-md d-flex align-items-center justify-content-center" style="width:36px;height:36px;">
+          <i class="material-symbols-rounded text-white" style="font-size:1rem">school</i>
+        </div>
+        <div>
+          <h6 class="mb-0">Especialidades</h6>
+          <p class="text-xs text-secondary mb-0">{{ specialties|length }} especialidad{{ specialties|length|pluralize:"es" }} registrada{{ specialties|length|pluralize:"s" }}</p>
+        </div>
+      </div>
+      <button class="btn btn-sm bg-gradient-dark d-flex align-items-center gap-1"
+              data-bs-toggle="collapse" data-bs-target="#addSpecialtyForm">
+        <i class="material-symbols-rounded" style="font-size:.9rem">add</i> Nueva
+      </button>
+    </div>
+
+    <!-- Inline add form -->
+    <div class="collapse" id="addSpecialtyForm">
+      <div class="card-body pt-2 pb-0">
+        <div class="add-form-inline">
+          <form method="post" action="{% url 'create_specialty' %}" class="d-flex align-items-end gap-3 flex-wrap">
+            {% csrf_token %}
+            <div class="flex-grow-1" style="min-width:200px">
+              <label class="form-label text-xs text-uppercase text-secondary font-weight-bolder mb-1">Nombre de la especialidad</label>
+              <input type="text" name="name" class="form-control form-control-sm"
+                     placeholder="Ej. Terapia cognitivo-conductual" required autofocus>
+            </div>
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-sm bg-gradient-dark">
+                <i class="material-symbols-rounded me-1" style="font-size:.85rem">save</i>Guardar
+              </button>
+              <button type="button" class="btn btn-sm btn-light" data-bs-toggle="collapse" data-bs-target="#addSpecialtyForm">
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-body px-0 pt-0 pb-2">
+      {% if specialties %}
+      <div class="table-responsive">
+        <table class="table param-table align-items-center mb-0">
+          <thead>
+            <tr>
+              <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-4">Nombre</th>
+              <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Estado</th>
+              <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Creada</th>
+              <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 pe-4 text-end">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for spec in specialties %}
+            <tr>
+              <td class="ps-4">
+                <span class="text-sm font-weight-bold">{{ spec.name }}</span>
+              </td>
+              <td>
+                {% if spec.is_active %}
+                  <span class="badge-active">Activa</span>
+                {% else %}
+                  <span class="badge-inactive">Inactiva</span>
+                {% endif %}
+              </td>
+              <td>
+                <span class="text-xs text-secondary">{{ spec.created_at|date:"d/m/Y" }}</span>
+              </td>
+              <td class="text-end pe-4">
+                <button class="btn btn-sm btn-light py-1 px-2"
+                        data-bs-toggle="modal" data-bs-target="#editSpecModal{{ spec.id }}">
+                  <i class="material-symbols-rounded" style="font-size:.9rem">edit</i>
+                </button>
+                <button class="btn btn-sm bg-gradient-danger py-1 px-2"
+                        data-bs-toggle="modal" data-bs-target="#delSpecModal{{ spec.id }}">
+                  <i class="material-symbols-rounded" style="font-size:.9rem">delete</i>
+                </button>
+              </td>
+            </tr>
+
+            <!-- Edit Modal -->
+            <div class="modal fade" id="editSpecModal{{ spec.id }}" tabindex="-1" aria-hidden="true">
+              <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow">
+                  <div class="modal-header border-0">
+                    <h6 class="modal-title">Editar Especialidad</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                  </div>
+                  <form method="post" action="{% url 'edit_specialty' spec.id %}">
+                    {% csrf_token %}
+                    <div class="modal-body pt-0">
+                      <label class="form-label text-sm">Nombre <span class="text-danger">*</span></label>
+                      <input type="text" name="name" class="form-control"
+                             value="{{ spec.name }}" required>
+                      <div class="form-check mt-3">
+                        <input class="form-check-input" type="checkbox" name="is_active" id="active{{ spec.id }}"
+                               {% if spec.is_active %}checked{% endif %}>
+                        <label class="form-check-label text-sm" for="active{{ spec.id }}">
+                          Especialidad activa
+                        </label>
+                      </div>
+                    </div>
+                    <div class="modal-footer border-0">
+                      <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                      <button type="submit" class="btn btn-sm bg-gradient-dark">Guardar</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+
+            <!-- Delete Modal -->
+            <div class="modal fade" id="delSpecModal{{ spec.id }}" tabindex="-1" aria-hidden="true">
+              <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow">
+                  <div class="modal-header border-0">
+                    <h6 class="modal-title">¿Eliminar especialidad?</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                  </div>
+                  <div class="modal-body pt-0">
+                    <p class="text-sm text-secondary">Se eliminará permanentemente la especialidad
+                      <strong>{{ spec.name }}</strong>. Esta acción no se puede deshacer.</p>
+                  </div>
+                  <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <form method="post" action="{% url 'delete_specialty' spec.id %}" class="d-inline">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-sm bg-gradient-danger">Eliminar</button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center py-5 text-secondary">
+        <i class="material-symbols-rounded d-block mb-2" style="font-size:2.5rem;color:#d1d5db">school</i>
+        <p class="text-sm mb-0">No hay especialidades registradas aún.</p>
+        <p class="text-xs">Usa el botón <strong>Nueva</strong> para agregar la primera.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock content %}

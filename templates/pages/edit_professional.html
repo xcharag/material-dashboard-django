@@ -136,9 +136,15 @@
                   </div>
                   <div class="col-md-6">
                     <label class="form-label text-sm">Especialidad</label>
-                    <input type="text" name="specialty" class="form-control"
-                           value="{{ professional.specialty|default:'' }}"
-                           placeholder="Ej. Terapia cognitivo-conductual">
+                    <select name="specialty" class="form-select">
+                      <option value="">Sin especialidad</option>
+                      {% for spec in specialties %}
+                      <option value="{{ spec.name }}" {% if professional.specialty == spec.name %}selected{% endif %}>{{ spec.name }}</option>
+                      {% endfor %}
+                      {% if professional.specialty and professional.specialty not in specialties|join:"|" %}
+                      <option value="{{ professional.specialty }}" selected>{{ professional.specialty }} (personalizada)</option>
+                      {% endif %}
+                    </select>
                   </div>
                   <div class="col-12">
                     <label class="form-label text-sm">Biografía</label>

@@ -6,7 +6,7 @@ from django.contrib.auth import views as auth_views
 from django.db import IntegrityError
 from django.db.models import Sum
 from .models import Patient, Professional, Consultation, ConsultationNote, ConsultationAttachment, Consultorio
-from .models import PatientAIThread, PatientAIMessage
+from .models import PatientAIThread, PatientAIMessage, Specialty
 from django.contrib import messages
 from .forms import CustomLoginForm, UsernameRecoveryForm
 from .forms import ProfessionalProfileForm, ProfessionalContactForm
@@ -292,7 +292,8 @@ def professionals(request):
 
     return render(request, 'pages/professionals.html', {
         'segment': 'profesional',
-        'professionals': professionals_list
+        'professionals': professionals_list,
+        'specialties': Specialty.objects.filter(is_active=True).order_by('name'),
     })
 
 
@@ -325,6 +326,7 @@ def edit_professional(request, professional_id):
         'professional': professional,
         'segment': 'profesional',
         'breadcrumb_child': f"{professional.first_name} {professional.last_name}",
+        'specialties': Specialty.objects.filter(is_active=True).order_by('name'),
     })
 
 
@@ -340,6 +342,61 @@ def delete_professional(request, professional_id):
             professional.delete()
         messages.success(request, f'Profesional {name} eliminado correctamente.')
     return redirect('professionals')
+
+
+@login_required
+@user_passes_test(is_admin)
+def parameters(request):
+    specialties = Specialty.objects.all().order_by('name')
+    return render(request, 'pages/parameters.html', {
+        'segment': 'parameters',
+        'specialties': specialties,
+    })
+
+
+@login_required
+@user_passes_test(is_admin)
+def create_specialty(request):
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        if not name:
+            messages.error(request, 'El nombre de la especialidad no puede estar vacío.')
+        elif Specialty.objects.filter(name__iexact=name).exists():
+            messages.error(request, f'La especialidad "{name}" ya existe.')
+        else:
+            Specialty.objects.create(name=name)
+            messages.success(request, f'Especialidad "{name}" creada correctamente.')
+    return redirect('parameters')
+
+
+@login_required
+@user_passes_test(is_admin)
+def edit_specialty(request, specialty_id):
+    specialty = get_object_or_404(Specialty, id=specialty_id)
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        is_active = request.POST.get('is_active') == 'on'
+        if not name:
+            messages.error(request, 'El nombre no puede estar vacío.')
+        elif Specialty.objects.filter(name__iexact=name).exclude(id=specialty_id).exists():
+            messages.error(request, f'Ya existe una especialidad con el nombre "{name}".')
+        else:
+            specialty.name = name
+            specialty.is_active = is_active
+            specialty.save()
+            messages.success(request, f'Especialidad "{name}" actualizada.')
+    return redirect('parameters')
+
+
+@login_required
+@user_passes_test(is_admin)
+def delete_specialty(request, specialty_id):
+    specialty = get_object_or_404(Specialty, id=specialty_id)
+    if request.method == 'POST':
+        name = specialty.name
+        specialty.delete()
+        messages.success(request, f'Especialidad "{name}" eliminada.')
+    return redirect('parameters')
 
 
 @login_required
