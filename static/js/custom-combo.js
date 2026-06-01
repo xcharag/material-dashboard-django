@@ -25,11 +25,27 @@ function initCombo(ids, selectedValue) {
 
   if (!trigger) return;
 
+  // ── Portal: move dropdown to <body> so no ancestor overflow can clip it ──
+  document.body.appendChild(dropdown);
+  dropdown.style.position = 'fixed';
+  dropdown.style.zIndex   = '9999';
+  dropdown.style.display  = 'none';
+  dropdown.classList.remove('open'); // remove any pre-existing open class
+
+  function positionDropdown() {
+    const rect = trigger.getBoundingClientRect();
+    dropdown.style.top   = rect.bottom + 'px';
+    dropdown.style.left  = rect.left   + 'px';
+    dropdown.style.width = rect.width  + 'px';
+  }
+
   const allOptions = Array.from(optionList.querySelectorAll('.combo-option'));
 
   function openDropdown() {
     trigger.classList.add('open');
     trigger.setAttribute('aria-expanded', 'true');
+    positionDropdown();
+    dropdown.style.display = 'block';
     dropdown.classList.add('open');
     searchBox.value = '';
     filterOptions('');
@@ -40,6 +56,7 @@ function initCombo(ids, selectedValue) {
     trigger.classList.remove('open');
     trigger.setAttribute('aria-expanded', 'false');
     dropdown.classList.remove('open');
+    dropdown.style.display = 'none';
   }
 
   function selectOption(opt) {
@@ -92,8 +109,12 @@ function initCombo(ids, selectedValue) {
   });
 
   document.addEventListener('click', e => {
-    if (combo && !combo.contains(e.target)) closeDropdown();
+    if (!trigger.contains(e.target) && !dropdown.contains(e.target)) closeDropdown();
   });
+
+  // Reposition if the page scrolls or window resizes while open
+  window.addEventListener('scroll', () => { if (dropdown.classList.contains('open')) positionDropdown(); }, true);
+  window.addEventListener('resize', () => { if (dropdown.classList.contains('open')) positionDropdown(); });
 
   // Pre-select if a value was provided
   if (selectedValue !== undefined && selectedValue !== null && selectedValue !== '') {
@@ -130,6 +151,20 @@ function initMultiCombo(ids) {
 
   if (!trigger) return;
 
+  // ── Portal: move dropdown to <body> so no ancestor overflow can clip it ──
+  document.body.appendChild(dropdown);
+  dropdown.style.position = 'fixed';
+  dropdown.style.zIndex   = '9999';
+  dropdown.style.display  = 'none';
+  dropdown.classList.remove('open');
+
+  function positionDropdown() {
+    const rect = trigger.getBoundingClientRect();
+    dropdown.style.top   = rect.bottom + 'px';
+    dropdown.style.left  = rect.left   + 'px';
+    dropdown.style.width = rect.width  + 'px';
+  }
+
   const allOptions = Array.from(optionList.querySelectorAll('.combo-option-check'));
 
   function getSelected() {
@@ -150,6 +185,8 @@ function initMultiCombo(ids) {
   function openDropdown() {
     trigger.classList.add('open');
     trigger.setAttribute('aria-expanded', 'true');
+    positionDropdown();
+    dropdown.style.display = 'block';
     dropdown.classList.add('open');
     searchBox.value = '';
     filterOptions('');
@@ -160,6 +197,7 @@ function initMultiCombo(ids) {
     trigger.classList.remove('open');
     trigger.setAttribute('aria-expanded', 'false');
     dropdown.classList.remove('open');
+    dropdown.style.display = 'none';
   }
 
   function filterOptions(q) {
@@ -195,8 +233,12 @@ function initMultiCombo(ids) {
   });
 
   document.addEventListener('click', e => {
-    if (combo && !combo.contains(e.target)) closeDropdown();
+    if (!trigger.contains(e.target) && !dropdown.contains(e.target)) closeDropdown();
   });
+
+  // Reposition if the page scrolls or window resizes while open
+  window.addEventListener('scroll', () => { if (dropdown.classList.contains('open')) positionDropdown(); }, true);
+  window.addEventListener('resize', () => { if (dropdown.classList.contains('open')) positionDropdown(); });
 
   // Init: sync icons and display from initial checkbox state
   allOptions.forEach(opt => {

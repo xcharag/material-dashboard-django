@@ -16,7 +16,10 @@ from django.http import JsonResponse, HttpResponse
 from django.template.loader import render_to_string
 import io
 import time
+import logging
 import markdown as md
+
+logger = logging.getLogger(__name__)
 from datetime import datetime as dt, date as ddate
 from .utils.availability import generate_slots
 from datetime import time as dtime
@@ -451,10 +454,13 @@ def my_patients(request):
             'total_paid': total_paid,
         })
 
+    total_consult_count = sum(r['consult_count'] for r in data)
+
     return render(request, 'pages/my_patients.html', {
         'segment': 'my_patients',
         'patients_data': data,
         'is_admin': is_staff,
+        'total_consult_count': total_consult_count,
     })
 
 
@@ -473,10 +479,25 @@ def patient_history(request, patient_id):
     totals = Payment.objects.filter(request__consultation__in=consultations) \
         .values('request__consultation_id').annotate(total=Sum('amount'))
     by_consult = {row['request__consultation_id']: row['total'] for row in totals}
+
+    # Prefetch notes and attachments per consultation
+    notes_qs = ConsultationNote.objects.filter(consultation__in=consultations).order_by('created_at')
+    notes_by_consult = {}
+    for n in notes_qs:
+        notes_by_consult.setdefault(n.consultation_id, []).append(n)
+
+    atts_qs = ConsultationAttachment.objects.filter(consultation__in=consultations).order_by('-uploaded_at')
+    atts_by_consult = {}
+    for a in atts_qs:
+        atts_by_consult.setdefault(a.consultation_id, []).append(a)
+
     for c in consultations:
         c.paid_amount = by_consult.get(c.id, 0)
+        c.notes_list = notes_by_consult.get(c.id, [])
+        c.attachments_list = atts_by_consult.get(c.id, [])
+
     total_paid = sum(by_consult.values()) if by_consult else 0
-    attachments = ConsultationAttachment.objects.filter(consultation__in=consultations).order_by('-uploaded_at')
+    attachments = list(atts_qs)
 
     return render(request, 'pages/patient_history.html', {
         'segment': 'my_patients',
@@ -1433,6 +1454,58 @@ def _collect_attachment_file_ids(client: OpenAI, professional: Professional, pat
     return file_ids
 
 
+def _ensure_patient_vector_store(client: OpenAI, thread, prof: Professional, patient: Patient, context_text: str = None) -> str:
+    """
+    Create (or recreate) a per-patient Vector Store containing:
+      - A plain-text file with all clinical notes/consultations (full context)
+      - All uploaded attachment files (PDFs, images, docs)
+
+    The Vector Store powers the file_search tool so the model retrieves only
+    relevant chunks per query instead of receiving the entire context every turn.
+    This is the standard RAG (Retrieval-Augmented Generation) pattern used in
+    professional clinical AI systems.
+
+    Returns the new vector_store_id and saves it to thread.openai_vector_store_id.
+    """
+    # Delete the old vector store to avoid orphaned OpenAI storage costs
+    if thread.openai_vector_store_id:
+        try:
+            client.vector_stores.delete(thread.openai_vector_store_id)
+        except Exception:
+            pass  # Already deleted or not found — safe to ignore
+
+    # Build clinical notes text (re-use already-built context if provided)
+    if context_text is None:
+        context_text = _build_patient_context(prof, patient)
+
+    # Upload clinical notes as a searchable .txt file
+    notes_filename = f"notas_clinicas_{patient.id}_{patient.last_name}.txt"
+    notes_file = client.files.create(
+        file=(notes_filename, io.BytesIO(context_text.encode('utf-8')), 'text/plain'),
+        purpose='assistants',
+    )
+
+    # Collect all attachment file IDs (uploads to OpenAI Files API if not already there)
+    attachment_file_ids = _collect_attachment_file_ids(client, prof, patient)
+    all_file_ids = [notes_file.id] + attachment_file_ids
+
+    # Create the vector store with a 90-day rolling expiration
+    vs = client.vector_stores.create(
+        name=f"paciente_{patient.id}_{patient.last_name}",
+        expires_after={"anchor": "last_active_at", "days": 90},
+    )
+
+    # Batch-index all files (blocks until indexing completes)
+    client.vector_stores.file_batches.create_and_poll(
+        vector_store_id=vs.id,
+        file_ids=all_file_ids,
+    )
+
+    thread.openai_vector_store_id = vs.id
+    thread.save(update_fields=['openai_vector_store_id'])
+    return vs.id
+
+
 @login_required
 def report_sessions_reupload(request):
     if request.method != 'POST':
@@ -1474,6 +1547,17 @@ def report_sessions_reupload(request):
                 uploaded += 1
         except Exception as e:
             errors.append(f"{att.id}: {e}")
+
+    # Rebuild the patient's vector store so the new files are indexed for RAG
+    view_prof = prof or patient.professional
+    if view_prof:
+        thread = PatientAIThread.objects.filter(professional=view_prof, patient=patient).first()
+        if thread:
+            try:
+                _ensure_patient_vector_store(client, thread, view_prof, patient)
+            except Exception as e:
+                errors.append(f"vector_store: {e}")
+
     return JsonResponse({'ok': True, 'uploaded': uploaded, 'total': len(atts), 'errors': errors})
 
 
@@ -1561,36 +1645,36 @@ def report_sessions(request):
                 error = 'Configura OPENAI_API_KEY para generar el resumen.'
             else:
                 try:
-                    # Only call if we actually built/updated context this POST
                     if not info:
-                        file_ids = _collect_attachment_file_ids(client, thread_prof, selected_patient)
-                        # Build initial context items (files + context text)
-                        context_content = []
-                        for fid in file_ids:
-                            context_content.append({"type": "input_file", "file_id": fid})
-                        system_text = (
-                            "Eres un asistente clínico para profesionales de salud mental. "
-                            "Usa el contexto del paciente y los archivos adjuntos. "
-                            "Responde siempre en español."
+                        # Build per-patient vector store (RAG index: notes + attachments)
+                        # Pass the already-built context_text to avoid re-querying the DB
+                        vs_id = _ensure_patient_vector_store(
+                            client, thread, thread_prof, selected_patient,
+                            context_text=thread.context or None,
                         )
-                        context_content.append({"type": "input_text", "text": system_text + "\n\n" + (thread.context or '')})
-                        # Always create a fresh conversation on regeneration so history is clean
+                        # Fresh conversation with a minimal system prompt (no huge context blob)
                         conv = client.conversations.create(
-                            items=[{"role": "user", "content": context_content}]
+                            items=[{"role": "user", "content": [{"type": "input_text", "text": (
+                                "Eres un asistente clínico para profesionales de salud mental. "
+                                "Tienes acceso al expediente clínico completo del paciente "
+                                "mediante búsqueda semántica en los archivos. "
+                                "Usa esa información para responder con precisión clínica. "
+                                "Responde siempre en español."
+                            )}]}]
                         )
                         thread.openai_conversation_id = conv.id
                         thread.save(update_fields=['openai_conversation_id'])
-                        # Generate the structured summary as the first real turn
-                        summary_prompt = (
-                            "Genera el resumen clínico completo del paciente con: "
-                            "1) Historia clínica detallada. "
-                            "2) Breve resumen de la última sesión y dónde quedó. "
-                            "3) Recomendaciones prácticas y cautelas para la próxima sesión."
-                        )
+                        # Generate initial structured summary via file_search tool
                         resp = client.responses.create(
                             model=thread.model or 'gpt-5',
-                            input=[{"role": "user", "content": summary_prompt}],
+                            input=[{"role": "user", "content": (
+                                "Genera el resumen clínico completo del paciente con: "
+                                "1) Historia clínica detallada basada en todas las consultas registradas. "
+                                "2) Breve resumen de la última sesión y dónde quedó. "
+                                "3) Recomendaciones prácticas y cautelas para la próxima sesión."
+                            )}],
                             conversation=conv.id,
+                            tools=[{"type": "file_search", "vector_store_ids": [vs_id]}],
                         )
                         content = getattr(resp, 'output_text', None) or ''
                         if content:
@@ -1612,7 +1696,7 @@ def report_sessions(request):
         'patients': patients,
         'selected_patient': selected_patient,
         'thread': thread,
-        'messages': messages_qs,
+        'chat_messages': messages_qs,
         'generated': generated,
         'error': error,
         'info': info,
@@ -1707,14 +1791,24 @@ def report_sessions_chat(request):
 
     # Retry up to 4 times on conversation_locked (OpenAI processes one turn at a time)
     last_error = None
+    vs_id = thread.openai_vector_store_id or None
+    tools = [{"type": "file_search", "vector_store_ids": [vs_id]}] if vs_id else []
     for attempt in range(4):
         try:
             resp = client.responses.create(
                 model=thread.model or 'gpt-5',
                 input=[{"role": "user", "content": question}],
                 conversation=thread.openai_conversation_id,
+                tools=tools,
             )
             answer = getattr(resp, 'output_text', None) or ''
+            # Log token usage via Django logger (visible in dev console + log files)
+            usage = getattr(resp, 'usage', None)
+            if usage:
+                in_tok  = getattr(usage, 'input_tokens', '?')
+                out_tok = getattr(usage, 'output_tokens', '?')
+                cached  = getattr(getattr(usage, 'input_tokens_details', None), 'cached_tokens', 0)
+                logger.info('[AI chat] in=%s (cached=%s) out=%s | thread=%s', in_tok, cached, out_tok, thread.id)
             PatientAIMessage.objects.create(thread=thread, role='assistant', content=answer)
             return JsonResponse({'ok': True, 'answer': answer})
         except Exception as e:

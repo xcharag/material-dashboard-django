@@ -5,6 +5,8 @@
 {% block extrastyle %}
 <link rel="stylesheet" href="{% static 'css/custom-combo.css' %}">
 <style>
+  /* Allow the page to grow beyond 100vh so the combo portal always lands inside the viewport */
+  .main-content { overflow-y: visible !important; min-height: 100vh; }
   /* ── Page header ── */
   .report-hero {
     border-radius: 1rem;
@@ -138,8 +140,8 @@
 
   <!-- Patient selector strip -->
   <div class="mt-3 mb-3">
-    <div class="card border-0 shadow-sm" style="overflow:visible">
-      <div class="card-body p-3" style="overflow:visible">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-3">
         <form method="post" class="d-flex flex-wrap align-items-end gap-3" id="reportForm">
           {% csrf_token %}
 
@@ -323,8 +325,8 @@
 
           <!-- Messages -->
           <div id="chatBox">
-            {% if messages %}
-              {% for m in messages %}
+            {% if chat_messages %}
+              {% for m in chat_messages %}
               {% if m.role != 'system' %}
               <div class="chat-row {{ m.role }}">
                 <div class="chat-avatar {% if m.role == 'user' %}usr-avatar{% else %}ai-avatar{% endif %}">

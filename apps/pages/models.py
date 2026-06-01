@@ -253,6 +253,8 @@ class PatientAIThread(models.Model):
     model = models.CharField(max_length=100, blank=True, default='gpt-4o-mini')
     # OpenAI Conversations API — server-side history managed by OpenAI
     openai_conversation_id = models.CharField(max_length=200, blank=True, default='')
+    # OpenAI Vector Store — per-patient RAG index (notes + attachments)
+    openai_vector_store_id = models.CharField(max_length=200, blank=True, default='')
     # Tracking which data the context covers to avoid unnecessary re-generation
     context_consult_count = models.IntegerField(default=0)
     context_note_count = models.IntegerField(default=0)
