@@ -29,25 +29,45 @@
     box-shadow:0 0 0 2px rgba(52,71,103,.12)!important;
   }
   /* ── Chat ── */
+  .chat-col-sticky {
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 5rem);
+    display: flex;
+    flex-direction: column;
+  }
+  .chat-col-sticky .card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .chat-col-sticky .card-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
   #chatBox {
-    flex:1;overflow-y:auto;padding:1.25rem;
-    display:flex;flex-direction:column;gap:.75rem;
+    flex:1;overflow-y:auto;padding:1rem;
+    display:flex;flex-direction:column;gap:.6rem;
     background:#f8f9fc;
     border-radius:.75rem .75rem 0 0;
-    min-height:420px;max-height:60vh;
+    min-height:0;
   }
-  .chat-row { display:flex;align-items:flex-end;gap:.6rem; }
+  .chat-row { display:flex;align-items:flex-end;gap:.5rem; }
   .chat-row.user  { flex-direction:row-reverse; }
   .chat-avatar {
-    width:32px;height:32px;border-radius:50%;
+    width:28px;height:28px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;
-    font-size:.7rem;font-weight:700;color:#fff;flex-shrink:0;
+    font-size:.65rem;font-weight:700;color:#fff;flex-shrink:0;
   }
   .chat-avatar.ai-avatar  { background:linear-gradient(195deg,#42424a,#191919); }
   .chat-avatar.usr-avatar { background:linear-gradient(195deg,#1a73e8,#0d47a1); }
   .chat-bubble {
-    max-width:78%;padding:.65rem .9rem;
-    border-radius:1rem;font-size:.84rem;line-height:1.55;
+    max-width:80%;padding:.5rem .8rem;
+    border-radius:.85rem;font-size:.8rem;line-height:1.5;
     word-break:break-word;
   }
   .chat-row.user  .chat-bubble { background:linear-gradient(195deg,#344767,#1a237e);color:#fff;border-bottom-right-radius:.2rem; }
@@ -55,13 +75,14 @@
   .chat-meta { font-size:.65rem;color:#b0b7c3;margin-top:.25rem;text-align:right; }
   .chat-row.assistant .chat-meta { text-align:left; }
   /* markdown inside bubbles */
-  .chat-bubble h1,.chat-bubble h2,.chat-bubble h3{font-size:.9rem;margin:.3rem 0}
-  .chat-bubble p{margin:.2rem 0}
-  .chat-bubble ul,.chat-bubble ol{margin:.2rem 0 .2rem 1.1rem;padding:0}
-  .chat-bubble code{background:rgba(0,0,0,.08);padding:0 .25rem;border-radius:.25rem;font-size:.8rem}
-  .chat-bubble pre{background:#1e1e2e;color:#cdd6f4;padding:.6rem;border-radius:.4rem;overflow:auto;font-size:.78rem}
-  .chat-bubble table{width:100%;font-size:.8rem;border-collapse:collapse}
-  .chat-bubble th,.chat-bubble td{border:1px solid #dee2e6;padding:.2rem .4rem}
+  .chat-bubble h1,.chat-bubble h2,.chat-bubble h3{font-size:.82rem;font-weight:700;margin:.25rem 0}
+  .chat-bubble p{margin:.15rem 0}
+  .chat-bubble ul,.chat-bubble ol{margin:.15rem 0 .15rem 1rem;padding:0}
+  .chat-bubble li{margin:.1rem 0}
+  .chat-bubble code{background:rgba(0,0,0,.08);padding:0 .2rem;border-radius:.25rem;font-size:.75rem}
+  .chat-bubble pre{background:#1e1e2e;color:#cdd6f4;padding:.5rem;border-radius:.4rem;overflow:auto;font-size:.73rem}
+  .chat-bubble table{width:100%;font-size:.75rem;border-collapse:collapse}
+  .chat-bubble th,.chat-bubble td{border:1px solid #dee2e6;padding:.15rem .35rem}
   /* chat input bar */
   .chat-input-bar {
     display:flex;align-items:center;gap:.6rem;
@@ -285,8 +306,9 @@
 
     <!-- ── RIGHT: Chat ─────────────────────────────── -->
     <div class="col-12 col-lg-8">
-      <div class="card border-0 shadow-sm" style="display:flex;flex-direction:column">
-        <div class="card-body p-0 d-flex flex-column">
+      <div class="chat-col-sticky">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
 
           <!-- Chat header -->
           <div class="d-flex align-items-center gap-3 p-4 border-bottom">
@@ -333,7 +355,7 @@
           </div>
 
           <!-- Input bar -->
-          <div class="chat-input-bar">
+          <div class="chat-input-bar" style="border-top:1px solid #e8eaf0">
             <input type="hidden" id="chatThreadId" value="{% if thread %}{{ thread.id }}{% endif %}">
             <input type="text" id="chatInput" class="form-control"
                    placeholder="{% if thread %}Escribe tu pregunta sobre {{ selected_patient.first_name }}…{% else %}Genera un resumen primero para activar el chat{% endif %}"
@@ -347,6 +369,7 @@
           </div>
 
         </div>
+      </div>
       </div>
     </div>
 
@@ -436,10 +459,17 @@
       const json = await res.json();
       if (json.ok) {
         try { thinkBubble.innerHTML = marked.parse(json.answer || ''); } catch (e) { thinkBubble.textContent = json.answer; }
+      } else if (res.status === 503) {
+        // Conversation still locked after server retries — show retryable prompt
+        thinkBubble.innerHTML = '<span style="opacity:.7">⏳</span> La IA sigue procesando. <button class="btn btn-link p-0 text-danger" style="font-size:.78rem" onclick="this.closest(\'.chat-row\').remove();sendChatMsg(' + JSON.stringify(msg) + ')">Reintentar</button>';
+        thinkBubble.style.background = '#fff8e1';
+        thinkBubble.style.color = '#7b5c00';
+        thinkBubble.style.border = '1px solid #ffe082';
       } else {
         thinkBubble.textContent = json.error || 'Error al contactar la IA.';
         thinkBubble.style.background = '#fff5f5';
         thinkBubble.style.color = '#b91c1c';
+        thinkBubble.style.border = '1px solid #fecaca';
       }
     } catch (err) {
       thinkBubble.textContent = 'Error de red. Intenta de nuevo.';
@@ -450,6 +480,12 @@
     input.disabled = false;
     sendBtn.disabled = false;
     input.focus();
+  }
+
+  /* Allow retrying a specific message text */
+  function sendChatMsg(msg) {
+    const input = document.getElementById('chatInput');
+    if (input) { input.value = msg; sendChat(); }
   }
 
   /* ── Enter key sends ───────────────────────────── */

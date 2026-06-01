@@ -15,6 +15,7 @@ from .forms import AvailabilityExceptionForm
 from django.http import JsonResponse, HttpResponse
 from django.template.loader import render_to_string
 import io
+import time
 import markdown as md
 from datetime import datetime as dt, date as ddate
 from .utils.availability import generate_slots
@@ -1563,28 +1564,37 @@ def report_sessions(request):
                     # Only call if we actually built/updated context this POST
                     if not info:
                         file_ids = _collect_attachment_file_ids(client, thread_prof, selected_patient)
-                        input_parts = []
+                        # Build initial context items (files + context text)
+                        context_content = []
                         for fid in file_ids:
-                            input_parts.append({"type": "input_file", "file_id": fid})
+                            context_content.append({"type": "input_file", "file_id": fid})
                         system_text = (
                             "Eres un asistente clínico para profesionales de salud mental. "
-                            "Usa el contexto del paciente y los archivos adjuntos para: "
-                            "1) Historia clínica detallada. 2) Breve resumen de la última sesión. "
-                            "3) Recomendaciones prácticas para la próxima sesión. Responde en español."
+                            "Usa el contexto del paciente y los archivos adjuntos. "
+                            "Responde siempre en español."
                         )
-                        input_parts.append({"type": "input_text", "text": system_text + "\n\n" + (thread.context or '')})
+                        context_content.append({"type": "input_text", "text": system_text + "\n\n" + (thread.context or '')})
+                        # Always create a fresh conversation on regeneration so history is clean
+                        conv = client.conversations.create(
+                            items=[{"role": "user", "content": context_content}]
+                        )
+                        thread.openai_conversation_id = conv.id
+                        thread.save(update_fields=['openai_conversation_id'])
+                        # Generate the structured summary as the first real turn
+                        summary_prompt = (
+                            "Genera el resumen clínico completo del paciente con: "
+                            "1) Historia clínica detallada. "
+                            "2) Breve resumen de la última sesión y dónde quedó. "
+                            "3) Recomendaciones prácticas y cautelas para la próxima sesión."
+                        )
                         resp = client.responses.create(
                             model=thread.model or 'gpt-5',
-                            input=[{"role": "user", "content": input_parts}],
+                            input=[{"role": "user", "content": summary_prompt}],
+                            conversation=conv.id,
                         )
                         content = getattr(resp, 'output_text', None) or ''
-                        if not content and hasattr(resp, 'output'):
-                            try:
-                                content = ' '.join([o.get('content', [{}])[0].get('text', {}).get('value', '') for o in resp.output])
-                            except Exception:
-                                content = ''
                         if content:
-                            PatientAIMessage.objects.create(thread=thread, role='assistant', content=content or '', is_summary=True)
+                            PatientAIMessage.objects.create(thread=thread, role='assistant', content=content, is_summary=True)
                             generated = content
                 except Exception as e:
                     error = f'Error al invocar OpenAI: {e}'
@@ -1690,42 +1700,33 @@ def report_sessions_chat(request):
     if not client:
         return JsonResponse({'ok': False, 'error': 'Falta OPENAI_API_KEY'}, status=400)
 
-    # Prepare input for Responses API: include files, context, short history, and the new question
-    history = list(thread.messages.order_by('-created_at')[:10])
-    history.reverse()
-    try:
-        file_ids = _collect_attachment_file_ids(client, thread.professional, thread.patient)
-    except Exception:
-        file_ids = []
-    input_parts = []
-    for fid in file_ids:
-        input_parts.append({"type": "input_file", "file_id": fid})
-    # Base instruction + context
-    base_text = (
-        "Eres un asistente clínico y debes responder solo sobre este paciente. "
-        "Usa exclusivamente el contexto y adjuntos.\n\n" + (thread.context or '')
-    )
-    input_parts.append({"type": "input_text", "text": base_text})
-    # Short conversation transcript as text blocks
-    for m in history:
-        role = 'Usuario' if m.role == 'user' else ('Asistente' if m.role == 'assistant' else 'Sistema')
-        input_parts.append({"type": "input_text", "text": f"{role}:\n{m.content}"})
-    # The new question
-    input_parts.append({"type": "input_text", "text": f"Usuario:\n{question}"})
+    if not thread.openai_conversation_id:
+        return JsonResponse({'ok': False, 'error': 'Genera un resumen primero para iniciar la conversación.'}, status=400)
 
-    try:
-        PatientAIMessage.objects.create(thread=thread, role='user', content=question)
-        resp = client.responses.create(model=thread.model or 'gpt-5', input=[{"role": "user", "content": input_parts}])
-        answer = getattr(resp, 'output_text', None) or ''
-        if not answer and hasattr(resp, 'output'):
-            try:
-                answer = ' '.join([o.get('content', [{}])[0].get('text', {}).get('value', '') for o in resp.output])
-            except Exception:
-                answer = ''
-        PatientAIMessage.objects.create(thread=thread, role='assistant', content=answer or '')
-        return JsonResponse({'ok': True, 'answer': answer})
-    except Exception as e:
-        return JsonResponse({'ok': False, 'error': f'Error IA: {e}'}, status=500)
+    PatientAIMessage.objects.create(thread=thread, role='user', content=question)
+
+    # Retry up to 4 times on conversation_locked (OpenAI processes one turn at a time)
+    last_error = None
+    for attempt in range(4):
+        try:
+            resp = client.responses.create(
+                model=thread.model or 'gpt-5',
+                input=[{"role": "user", "content": question}],
+                conversation=thread.openai_conversation_id,
+            )
+            answer = getattr(resp, 'output_text', None) or ''
+            PatientAIMessage.objects.create(thread=thread, role='assistant', content=answer)
+            return JsonResponse({'ok': True, 'answer': answer})
+        except Exception as e:
+            last_error = e
+            err_str = str(e)
+            if 'conversation_locked' in err_str:
+                time.sleep(2 ** attempt)  # 1s, 2s, 4s, 8s
+                continue
+            # Any other error — fail immediately
+            return JsonResponse({'ok': False, 'error': f'Error IA: {e}'}, status=500)
+
+    return JsonResponse({'ok': False, 'error': 'La conversación está ocupada, intenta de nuevo en unos segundos.'}, status=503)
 
 
 @login_required
