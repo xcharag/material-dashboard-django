@@ -1,100 +1,216 @@
 {% extends "layouts/base.html" %}
 {% block title %} Solicitud de Pago {% endblock %}
+
+{% block extrastyle %}
+<style>
+  .avatar-circle {
+    width: 48px; height: 48px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; font-weight: 700; color: #fff; flex-shrink: 0;
+  }
+  .info-chip {
+    display: flex; flex-direction: column;
+    background: #f8f9fa; border-radius: .75rem;
+    padding: .75rem 1rem; border: 1px solid #e0e0e0;
+  }
+  .info-chip .label {
+    font-size: .65rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: #7b809a; margin-bottom: .2rem;
+  }
+  .info-chip .value { font-size: .9rem; font-weight: 600; color: #344767; }
+  .field-label {
+    display: block; font-size: .7rem; font-weight: 700;
+    letter-spacing: .06em; text-transform: uppercase;
+    color: #7b809a; margin-bottom: .35rem;
+  }
+  .field-label .req { color: #f5365c; margin-left: .2rem; font-size: .85rem; }
+  .form-control, .form-select {
+    font-size: .875rem; color: #344767; background-color: #f8f9fa;
+    border: 1px solid #e0e0e0; border-radius: .5rem; padding: .55rem .75rem;
+  }
+  .form-control:focus, .form-select:focus {
+    background-color: #fff; border-color: #344767;
+    box-shadow: 0 0 0 2px rgba(52,71,103,.12);
+  }
+  textarea.form-control { resize: vertical; }
+  .table th {
+    font-size: .65rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: #7b809a;
+    border-top: none; padding: .65rem 1rem;
+  }
+  .table td { font-size: .82rem; vertical-align: middle; padding: .65rem 1rem; }
+  .table tbody tr { transition: background .12s; }
+  .table tbody tr:hover { background: rgba(0,0,0,.025); }
+  .method-badge {
+    display: inline-flex; align-items: center; gap: .3rem;
+    font-size: .7rem; font-weight: 600; padding: .28em .65em;
+    border-radius: .5rem; text-transform: uppercase; letter-spacing: .04em;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid py-4">
-  <div class="row">
-    <div class="col-12">
-      <div class="card my-4">
-        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
-          <div class="bg-gradient-success shadow-success border-radius-lg pt-4 pb-3 d-flex justify-content-between align-items-center">
-            <h6 class="text-white text-capitalize ps-3 mb-0">Solicitud de Pago</h6>
-            <a href="{% url 'finance_requests' %}" class="btn btn-sm btn-outline-light me-3">Volver</a>
-          </div>
-        </div>
-        <div class="card-body px-4 pb-3">
-          <div class="row mb-3">
-            <div class="col-md-3">
-              <p class="text-xs text-secondary mb-1">Paciente</p>
-              <h6 class="mb-0">{{ pr.consultation.patient.first_name }} {{ pr.consultation.patient.last_name }}</h6>
-            </div>
-            <div class="col-md-3">
-              <p class="text-xs text-secondary mb-1">Profesional</p>
-              <h6 class="mb-0">{{ pr.consultation.professional.first_name }} {{ pr.consultation.professional.last_name }}</h6>
-            </div>
-            <div class="col-md-2">
-              <p class="text-xs text-secondary mb-1">Esperado</p>
-              <h6 class="mb-0">Bs {{ pr.expected_amount|default:'-' }}</h6>
-            </div>
-            <div class="col-md-2">
-              <p class="text-xs text-secondary mb-1">Pagado</p>
-              <h6 class="mb-0">Bs {{ pr.amount_paid }}</h6>
-            </div>
-            <div class="col-md-2">
-              <p class="text-xs text-secondary mb-1">Saldo</p>
-              <h6 class="mb-0">Bs {{ pr.balance }}</h6>
-            </div>
-          </div>
-          <hr>
-          <div class="row">
-            <div class="col-lg-6">
-              <h6 class="mb-3">Pagos</h6>
-              <div class="table-responsive">
-                <table class="table table-sm">
-                  <thead>
-                    <tr><th>Fecha</th><th>Método</th><th>Referencia</th><th class="text-end">Monto</th></tr>
-                  </thead>
-                  <tbody>
-                    {% for p in pr.payments.all %}
-                      <tr>
-                        <td>{{ p.paid_at|date:'d/m/Y H:i' }}</td>
-                        <td>{{ p.get_method_display }}</td>
-                        <td>{{ p.reference|default:'-' }}</td>
-                        <td class="text-end">Bs {{ p.amount }}</td>
-                      </tr>
-                    {% empty %}
-                      <tr><td colspan="4" class="text-secondary">Sin pagos</td></tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div class="col-lg-6">
-              <h6 class="mb-3">Registrar Pago</h6>
-              <form method="post" class="row g-2">
-                {% csrf_token %}
-                <div class="col-6">
-                  <div class="input-group input-group-static">
-                    <label>Monto (Bs)</label>
-                    {{ form.amount }}
-                  </div>
-                </div>
-                <div class="col-6">
-                  <div class="input-group input-group-static">
-                    <label>Método</label>
-                    {{ form.method }}
-                  </div>
-                </div>
-                <div class="col-12">
-                  <div class="input-group input-group-static">
-                    <label>Referencia</label>
-                    {{ form.reference }}
-                  </div>
-                </div>
-                <div class="col-12">
-                  <div class="input-group input-group-static">
-                    <label>Notas</label>
-                    {{ form.notes }}
-                  </div>
-                </div>
-                <div class="col-12">
-                  <button class="btn bg-gradient-success">Guardar Pago</button>
-                </div>
-              </form>
-            </div>
+
+  <!-- Page Header -->
+  <div class="d-flex flex-column flex-md-row align-items-md-start justify-content-between mb-4 gap-3">
+    <div class="d-flex align-items-center gap-3">
+      <div class="avatar-circle" style="background:linear-gradient(195deg,#1A73E8,#1557B0)">
+        {{ pr.consultation.patient.first_name|slice:":1" }}{{ pr.consultation.patient.last_name|slice:":1" }}
+      </div>
+      <div>
+        <h4 class="mb-0 font-weight-bolder">
+          {{ pr.consultation.patient.first_name }} {{ pr.consultation.patient.last_name }}
+        </h4>
+        <p class="text-sm text-secondary mb-0">
+          Solicitud #{{ pr.id }} &middot; {{ pr.created_at|date:'d/m/Y' }}
+          &nbsp;
+          <span class="badge bg-gradient-{% if pr.status == 'paid' %}success{% elif pr.status == 'partial' %}warning{% else %}secondary{% endif %}">
+            {% if pr.status == 'paid' %}Pagada{% elif pr.status == 'partial' %}Parcial{% else %}Pendiente{% endif %}
+          </span>
+        </p>
+      </div>
+    </div>
+    <a href="{% url 'finance_requests' %}" class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1" style="width:fit-content;flex-shrink:0">
+      <i class="material-symbols-rounded" style="font-size:.9rem">arrow_back</i>
+      Solicitudes
+    </a>
+  </div>
+
+  <!-- Financial summary chips -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="info-chip">
+        <span class="label">Profesional</span>
+        <span class="value">{{ pr.consultation.professional.first_name }} {{ pr.consultation.professional.last_name }}</span>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="info-chip">
+        <span class="label">Monto esperado</span>
+        <span class="value">{% if pr.expected_amount %}Bs {{ pr.expected_amount }}{% else %}—{% endif %}</span>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="info-chip">
+        <span class="label">Total pagado</span>
+        <span class="value" style="color:#2e7d32">Bs {{ pr.amount_paid }}</span>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="info-chip">
+        <span class="label">Saldo pendiente</span>
+        <span class="value" {% if pr.balance > 0 %}style="color:#c62828"{% endif %}>Bs {{ pr.balance }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main two-column layout -->
+  <div class="row g-4">
+
+    <!-- Left: Payments history -->
+    <div class="col-12 col-lg-7">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="font-weight-bolder mb-3 d-flex align-items-center gap-2">
+            <i class="material-symbols-rounded text-secondary" style="font-size:1.1rem">receipt</i>
+            Pagos Registrados
+          </h6>
+          <div class="table-responsive">
+            <table class="table mb-0">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Método</th>
+                  <th>Referencia</th>
+                  <th class="text-end">Monto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for p in pr.payments.all %}
+                <tr>
+                  <td class="text-secondary">{{ p.paid_at|date:'d/m/Y H:i' }}</td>
+                  <td>
+                    {% if p.method == 'cash' %}
+                      <span class="method-badge" style="background:#e8f5e9;color:#2e7d32">
+                        <i class="material-symbols-rounded" style="font-size:.85rem">payments</i>Efectivo
+                      </span>
+                    {% elif p.method == 'card' %}
+                      <span class="method-badge" style="background:#e3f2fd;color:#1565c0">
+                        <i class="material-symbols-rounded" style="font-size:.85rem">credit_card</i>Tarjeta
+                      </span>
+                    {% else %}
+                      <span class="method-badge" style="background:#ede7f6;color:#512da8">
+                        <i class="material-symbols-rounded" style="font-size:.85rem">qr_code</i>QR
+                      </span>
+                    {% endif %}
+                  </td>
+                  <td class="text-secondary">{{ p.reference|default:'—' }}</td>
+                  <td class="text-end font-weight-bold" style="color:#344767">Bs {{ p.amount }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="4" class="text-center py-4">
+                    <i class="material-symbols-rounded d-block mb-1" style="font-size:2.2rem;color:#d1d5db">receipt</i>
+                    <span class="text-secondary text-sm">Sin pagos aún</span>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Right: Register payment form -->
+    <div class="col-12 col-lg-5">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <h6 class="font-weight-bolder mb-3 d-flex align-items-center gap-2">
+            <i class="material-symbols-rounded text-secondary" style="font-size:1.1rem">add_card</i>
+            Registrar Pago
+          </h6>
+
+          {% if pr.status == 'paid' %}
+          <div class="d-flex align-items-center gap-2 p-3 rounded-3" style="background:#e8f5e9;color:#2e7d32;font-size:.82rem">
+            <i class="material-symbols-rounded" style="font-size:1.1rem">check_circle</i>
+            <span>Esta solicitud ya está completamente pagada.</span>
+          </div>
+          {% else %}
+          <p class="text-xs text-secondary mb-3">Los campos con <span style="color:#f5365c">*</span> son obligatorios.</p>
+          <form method="post" class="row g-3">
+            {% csrf_token %}
+            <div class="col-12">
+              <label class="field-label">Monto (Bs) <span class="req">*</span></label>
+              {{ form.amount }}
+            </div>
+            <div class="col-12">
+              <label class="field-label">Método de Pago <span class="req">*</span></label>
+              {{ form.method }}
+            </div>
+            <div class="col-12">
+              <label class="field-label">Referencia</label>
+              {{ form.reference }}
+            </div>
+            <div class="col-12">
+              <label class="field-label">Notas</label>
+              {{ form.notes }}
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn bg-gradient-dark w-100 d-flex align-items-center justify-content-center gap-1">
+                <i class="material-symbols-rounded" style="font-size:1rem">save</i>
+                Guardar Pago
+              </button>
+            </div>
+          </form>
+          {% endif %}
+
+        </div>
+      </div>
+    </div>
+
   </div>
+
 </div>
 {% endblock content %}

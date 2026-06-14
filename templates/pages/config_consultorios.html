@@ -1,79 +1,230 @@
 {% extends "layouts/base.html" %}
 {% block title %} Consultorios {% endblock %}
+
+{% block extrastyle %}
+<style>
+  .offcanvas { width: 440px !important; }
+  @media(max-width:576px){ .offcanvas { width: 100% !important; } }
+  .offcanvas-body .field-label {
+    display: block; font-size: .7rem; font-weight: 700;
+    letter-spacing: .06em; text-transform: uppercase;
+    color: #7b809a; margin-bottom: .35rem;
+  }
+  .offcanvas-body .field-label .req { color: #f5365c; margin-left: .2rem; font-size: .85rem; }
+  .offcanvas-body .form-control {
+    font-size: .875rem; color: #344767; background-color: #f8f9fa;
+    border: 1px solid #e0e0e0; border-radius: .5rem; padding: .55rem .75rem;
+  }
+  .offcanvas-body .form-control:focus {
+    background-color: #fff; border-color: #344767;
+    box-shadow: 0 0 0 2px rgba(52,71,103,.12);
+  }
+  .room-icon-circle {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .table th {
+    font-size: .65rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: #7b809a;
+    border-top: none; padding: .75rem 1rem;
+  }
+  .table td { font-size: .82rem; vertical-align: middle; padding: .75rem 1rem; }
+  .table tbody tr { transition: background .12s; }
+  .table tbody tr:hover { background: rgba(0,0,0,.025); }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: .3rem;
+    font-size: .72rem; font-weight: 600; padding: .3em .75em;
+    border-radius: 2rem; cursor: pointer; border: none;
+    transition: opacity .15s;
+  }
+  .status-pill:hover { opacity: .85; }
+  .empty-state { padding: 4rem 1rem; }
+  .empty-state i { font-size: 3.5rem; color: #d1d5db; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid py-4">
-  <div class="row">
-    <div class="col-12">
-      <div class="card my-4">
-        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
-          <div class="bg-gradient-success shadow-success border-radius-lg pt-4 pb-3 d-flex justify-content-between align-items-center">
-            <h6 class="text-white text-capitalize ps-3 mb-0">Consultorios</h6>
+
+  <!-- Page Header -->
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-4 gap-3">
+    <div>
+      <h4 class="mb-0 font-weight-bolder">Consultorios</h4>
+      <p class="text-sm text-secondary mb-0">Gestión de espacios clínicos disponibles</p>
+    </div>
+    <button class="btn bg-gradient-dark btn-sm d-flex align-items-center gap-1"
+            data-bs-toggle="offcanvas" data-bs-target="#addConsultorioCanvas"
+            style="width:fit-content">
+      <i class="material-symbols-rounded" style="font-size:1rem">add_home</i>
+      Nuevo Consultorio
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body d-flex align-items-center gap-3 py-3">
+          <div class="room-icon-circle" style="background:linear-gradient(195deg,#42424a,#191919)">
+            <i class="material-symbols-rounded text-white" style="font-size:1.1rem">home_work</i>
           </div>
-        </div>
-        <div class="card-body px-4 pb-2">
-          <form method="post" class="row g-2 mb-4">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="add">
-            <div class="col-md-3">
-              <div class="input-group input-group-static">
-                <label>Nombre</label>
-                <input type="text" name="name" class="form-control" required>
-              </div>
-            </div>
-            <div class="col-md-5">
-              <div class="input-group input-group-static">
-                <label>Dirección</label>
-                <input type="text" name="address" class="form-control">
-              </div>
-            </div>
-            <div class="col-md-2">
-              <div class="input-group input-group-static">
-                <label>&nbsp;</label>
-                <button class="btn btn-outline-success w-100">Agregar</button>
-              </div>
-            </div>
-          </form>
-          <div class="table-responsive">
-            <table class="table align-items-center mb-0">
-              <thead>
-                <tr>
-                  <th>Nombre</th>
-                  <th>Dirección</th>
-                  <th>Activo</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for c in consultorios %}
-                <tr>
-                  <td>{{ c.name }}</td>
-                  <td>{{ c.address|default:'-' }}</td>
-                  <td>
-                    <form method="post" class="d-inline">
-                      {% csrf_token %}
-                      <input type="hidden" name="action" value="toggle">
-                      <input type="hidden" name="consultorio_id" value="{{ c.id }}">
-                      <button class="btn btn-sm {% if c.is_active %}btn-success{% else %}btn-secondary{% endif %}" title="Cambiar estado">{{ c.is_active|yesno:'Sí,No' }}</button>
-                    </form>
-                  </td>
-                  <td>
-                    <form method="post" class="d-inline" onsubmit="return confirm('Eliminar consultorio?');">
-                      {% csrf_token %}
-                      <input type="hidden" name="action" value="delete">
-                      <input type="hidden" name="consultorio_id" value="{{ c.id }}">
-                      <button class="btn btn-sm btn-danger">Eliminar</button>
-                    </form>
-                  </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="4" class="text-center py-3">Sin consultorios</td></tr>
-                {% endfor %}
-              </tbody>
-            </table>
+          <div>
+            <p class="text-xs text-secondary mb-0">Total consultorios</p>
+            <h5 class="mb-0 font-weight-bolder">{{ consultorios|length }}</h5>
           </div>
         </div>
       </div>
     </div>
+    <div class="col-6 col-md-3">
+      <a href="{% url 'consultorios_calendar' %}" class="card border-0 shadow-sm text-decoration-none" style="transition:transform .18s,box-shadow .18s;" onmouseenter="this.style.transform='translateY(-3px)';this.style.boxShadow='0 10px 28px rgba(0,0,0,.1)'" onmouseleave="this.style.transform='';this.style.boxShadow=''">
+        <div class="card-body d-flex align-items-center gap-3 py-3">
+          <div class="room-icon-circle" style="background:linear-gradient(195deg,#1A73E8,#1557B0)">
+            <i class="material-symbols-rounded text-white" style="font-size:1.1rem">calendar_month</i>
+          </div>
+          <div>
+            <p class="text-xs text-secondary mb-0">Ver calendario</p>
+            <p class="mb-0 font-weight-bold text-sm" style="color:#344767">Citas del día</p>
+          </div>
+          <i class="material-symbols-rounded text-secondary ms-auto">chevron_right</i>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <!-- Table Card -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead>
+            <tr>
+              <th>Consultorio</th>
+              <th>Dirección</th>
+              <th>Estado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in consultorios %}
+            <tr>
+              <td>
+                <div class="d-flex align-items-center gap-3">
+                  <div class="room-icon-circle" style="background:linear-gradient(195deg,#1A73E8,#1557B0)">
+                    <i class="material-symbols-rounded text-white" style="font-size:1rem">door_front</i>
+                  </div>
+                  <span class="font-weight-bold" style="color:#344767">{{ c.name }}</span>
+                </div>
+              </td>
+              <td class="text-secondary">
+                {% if c.address %}
+                <div class="d-flex align-items-center gap-1">
+                  <i class="material-symbols-rounded text-secondary" style="font-size:.9rem">location_on</i>
+                  {{ c.address }}
+                </div>
+                {% else %}
+                <span class="text-secondary">—</span>
+                {% endif %}
+              </td>
+              <td>
+                <form method="post" class="d-inline" id="toggleForm{{ c.id }}">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="toggle">
+                  <input type="hidden" name="consultorio_id" value="{{ c.id }}">
+                  <button type="submit" class="status-pill {% if c.is_active %}text-white{% endif %}"
+                          style="background:{% if c.is_active %}linear-gradient(195deg,#66BB6A,#43A047){% else %}#e9ecef{% endif %};color:{% if not c.is_active %}#7b809a{% endif %}">
+                    <i class="material-symbols-rounded" style="font-size:.9rem">{% if c.is_active %}check_circle{% else %}cancel{% endif %}</i>
+                    {% if c.is_active %}Activo{% else %}Inactivo{% endif %}
+                  </button>
+                </form>
+              </td>
+              <td>
+                <button type="button"
+                        class="btn btn-sm bg-gradient-danger mb-0 d-flex align-items-center gap-1"
+                        data-bs-toggle="modal" data-bs-target="#delModal{{ c.id }}">
+                  <i class="material-symbols-rounded" style="font-size:.85rem">delete</i>
+                  Eliminar
+                </button>
+              </td>
+            </tr>
+
+            <!-- Delete Modal -->
+            <div class="modal fade" id="delModal{{ c.id }}" tabindex="-1" aria-hidden="true">
+              <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow">
+                  <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title">¿Eliminar consultorio?</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                  </div>
+                  <div class="modal-body pt-1">
+                    <p class="text-secondary text-sm">Esta acción eliminará permanentemente
+                      <strong>{{ c.name }}</strong>. Las citas asociadas perderán su referencia de consultorio.</p>
+                  </div>
+                  <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <form method="post" class="d-inline">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="delete">
+                      <input type="hidden" name="consultorio_id" value="{{ c.id }}">
+                      <button type="submit" class="btn btn-sm bg-gradient-danger">Eliminar</button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {% empty %}
+            <tr>
+              <td colspan="4">
+                <div class="text-center empty-state">
+                  <i class="material-symbols-rounded d-block mb-3">home_work</i>
+                  <h6 class="text-secondary">Sin consultorios registrados</h6>
+                  <p class="text-sm text-secondary mb-0">Haz clic en <strong>Nuevo Consultorio</strong> para añadir el primero.</p>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Offcanvas: Nuevo Consultorio -->
+<div class="offcanvas offcanvas-end shadow-lg" tabindex="-1" id="addConsultorioCanvas">
+  <div class="offcanvas-header border-bottom">
+    <div class="d-flex align-items-center gap-2">
+      <div style="width:36px;height:36px;border-radius:50%;background:#344767;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="material-symbols-rounded text-white" style="font-size:1rem">add_home</i>
+      </div>
+      <h6 class="mb-0">Nuevo Consultorio</h6>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+  </div>
+  <div class="offcanvas-body">
+    <p class="text-xs text-secondary mb-4">Los campos con <span style="color:#f5365c">*</span> son obligatorios.</p>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add">
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="field-label">Nombre <span class="req">*</span></label>
+          <input type="text" name="name" class="form-control" required placeholder="Ej. Consultorio Principal">
+        </div>
+        <div class="col-12">
+          <label class="field-label">Dirección</label>
+          <input type="text" name="address" class="form-control" placeholder="Calle, edificio, piso...">
+        </div>
+      </div>
+      <div class="d-grid mt-4">
+        <button type="submit" class="btn bg-gradient-dark">
+          <i class="material-symbols-rounded me-1" style="font-size:1rem">save</i>
+          Guardar Consultorio
+        </button>
+      </div>
+    </form>
   </div>
 </div>
+
 {% endblock content %}

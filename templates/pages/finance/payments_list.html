@@ -1,51 +1,157 @@
 {% extends "layouts/base.html" %}
-{% block title %} Pagos {% endblock %}
+{% block title %} Historial de Pagos {% endblock %}
+
+{% block extrastyle %}
+<style>
+  .avatar-circle {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .8rem; font-weight: 700; color: #fff; flex-shrink: 0;
+  }
+  .method-badge {
+    display: inline-flex; align-items: center; gap: .3rem;
+    font-size: .7rem; font-weight: 600; padding: .28em .65em;
+    border-radius: .5rem; text-transform: uppercase; letter-spacing: .04em;
+  }
+  .filter-card .form-select,
+  .filter-card .form-control {
+    font-size: .82rem; border-radius: .5rem;
+    border: 1px solid #e0e0e0; background: #f8f9fa;
+    padding: .45rem .65rem; color: #344767;
+  }
+  .filter-card .form-select:focus,
+  .filter-card .form-control:focus {
+    background: #fff; border-color: #344767;
+    box-shadow: 0 0 0 2px rgba(52,71,103,.12);
+  }
+  .table th {
+    font-size: .65rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: #7b809a;
+    border-top: none; padding: .75rem 1rem;
+  }
+  .table td { font-size: .82rem; vertical-align: middle; padding: .75rem 1rem; }
+  .table tbody tr { transition: background .12s; }
+  .table tbody tr:hover { background: rgba(0,0,0,.025); }
+  .total-chip {
+    display: inline-flex; align-items: center; gap: .4rem;
+    background: #f8f9fa; border: 1px solid #e0e0e0;
+    border-radius: .75rem; padding: .4rem .9rem;
+    font-size: .82rem; font-weight: 600; color: #344767;
+  }
+  .empty-state { padding: 4rem 1rem; }
+  .empty-state i { font-size: 3.5rem; color: #d1d5db; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid py-4">
-  <div class="row">
-    <div class="col-12">
-      <div class="card my-4">
-        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
-          <div class="bg-gradient-success shadow-success border-radius-lg pt-4 pb-3 d-flex justify-content-between align-items-center">
-            <h6 class="text-white text-capitalize ps-3 mb-0">Pagos</h6>
-            <form method="get" class="d-flex me-3" style="gap:.5rem;">
-              <input type="date" name="start" value="{{ start }}" class="form-control form-control-sm" />
-              <input type="date" name="end" value="{{ end }}" class="form-control form-control-sm" />
-              <button class="btn btn-sm btn-outline-light">Filtrar</button>
-            </form>
+
+  <!-- Page Header -->
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-4 gap-3">
+    <div>
+      <h4 class="mb-0 font-weight-bolder">Historial de Pagos</h4>
+      <p class="text-sm text-secondary mb-0">Transacciones recibidas</p>
+    </div>
+    <a href="{% url 'finance_dashboard' %}" class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1" style="width:fit-content">
+      <i class="material-symbols-rounded" style="font-size:.9rem">arrow_back</i>
+      Finanzas
+    </a>
+  </div>
+
+  <!-- Filter Card -->
+  <div class="card border-0 shadow-sm mb-4 filter-card">
+    <div class="card-body p-3">
+      <form method="get" class="row g-2 align-items-end">
+        <div class="col-12 col-sm-auto">
+          <label class="form-label text-xs text-secondary mb-1">Desde</label>
+          <input type="date" name="start" value="{{ start }}" class="form-control">
+        </div>
+        <div class="col-12 col-sm-auto">
+          <label class="form-label text-xs text-secondary mb-1">Hasta</label>
+          <input type="date" name="end" value="{{ end }}" class="form-control">
+        </div>
+        <div class="col-auto d-flex gap-2">
+          <button type="submit" class="btn bg-gradient-dark btn-sm d-flex align-items-center gap-1">
+            <i class="material-symbols-rounded" style="font-size:.9rem">filter_alt</i>Filtrar
+          </button>
+          {% if start or end %}
+          <a href="{% url 'finance_payments' %}" class="btn btn-light btn-sm d-flex align-items-center" title="Limpiar filtro">
+            <i class="material-symbols-rounded" style="font-size:.9rem">close</i>
+          </a>
+          {% endif %}
+        </div>
+        <div class="col-12 col-md-auto ms-md-auto d-flex align-items-end">
+          <div class="total-chip">
+            <i class="material-symbols-rounded text-secondary" style="font-size:1rem">account_balance_wallet</i>
+            Total: <strong>Bs {{ total }}</strong>
           </div>
         </div>
-        <div class="card-body px-4 pb-3">
-          <div class="mb-2 text-secondary">Total: <strong>Bs {{ total }}</strong></div>
-          <div class="table-responsive">
-            <table class="table align-items-center mb-0">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Paciente</th>
-                  <th>Método</th>
-                  <th>Referencia</th>
-                  <th class="text-end">Monto</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for p in payments %}
-                <tr>
-                  <td>{{ p.paid_at|date:'d/m/Y H:i' }}</td>
-                  <td>{{ p.request.consultation.patient.first_name }} {{ p.request.consultation.patient.last_name }}</td>
-                  <td>{{ p.get_method_display }}</td>
-                  <td>{{ p.reference|default:'-' }}</td>
-                  <td class="text-end">Bs {{ p.amount }}</td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="5" class="text-secondary">Sin pagos</td></tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Table Card -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead>
+            <tr>
+              <th>Paciente</th>
+              <th>Fecha</th>
+              <th>Método</th>
+              <th>Referencia</th>
+              <th class="text-end">Monto</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in payments %}
+            {% with patient=p.request.consultation.patient %}
+            <tr>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="avatar-circle" style="background:#1A73E8">
+                    {{ patient.first_name|slice:":1" }}{{ patient.last_name|slice:":1" }}
+                  </div>
+                  <span class="font-weight-bold" style="color:#344767">{{ patient.first_name }} {{ patient.last_name }}</span>
+                </div>
+              </td>
+              <td class="text-secondary">{{ p.paid_at|date:'d/m/Y H:i' }}</td>
+              <td>
+                {% if p.method == 'cash' %}
+                  <span class="method-badge" style="background:#e8f5e9;color:#2e7d32">
+                    <i class="material-symbols-rounded" style="font-size:.85rem">payments</i>Efectivo
+                  </span>
+                {% elif p.method == 'card' %}
+                  <span class="method-badge" style="background:#e3f2fd;color:#1565c0">
+                    <i class="material-symbols-rounded" style="font-size:.85rem">credit_card</i>Tarjeta
+                  </span>
+                {% else %}
+                  <span class="method-badge" style="background:#ede7f6;color:#512da8">
+                    <i class="material-symbols-rounded" style="font-size:.85rem">qr_code</i>QR
+                  </span>
+                {% endif %}
+              </td>
+              <td class="text-secondary">{{ p.reference|default:'—' }}</td>
+              <td class="text-end font-weight-bold" style="color:#344767">Bs {{ p.amount }}</td>
+            </tr>
+            {% endwith %}
+            {% empty %}
+            <tr>
+              <td colspan="5">
+                <div class="text-center empty-state">
+                  <i class="material-symbols-rounded d-block mb-3">payments</i>
+                  <h6 class="text-secondary">Sin pagos registrados</h6>
+                  <p class="text-sm text-secondary mb-0">Aquí aparecerán los pagos una vez que se registren en una solicitud.</p>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
+
 </div>
 {% endblock content %}

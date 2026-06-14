@@ -32,7 +32,91 @@ from django.conf import settings
 
 @login_required
 def index(request):
-    return render(request, 'pages/index.html', {'segment': 'dashboard'})
+    today = ddate.today()
+    is_admin = request.user.is_staff
+    professional = None
+
+    if not is_admin:
+        try:
+            professional = Professional.objects.get(user=request.user)
+        except Professional.DoesNotExist:
+            professional = None
+
+    # Base queryset scoped by role
+    if is_admin:
+        base_qs = Consultation.objects.select_related('patient', 'professional', 'consultorio_fk')
+        patients_total = Patient.objects.count()
+    else:
+        base_qs = (
+            Consultation.objects.filter(professional=professional)
+            .select_related('patient', 'professional', 'consultorio_fk')
+            if professional else Consultation.objects.none()
+        )
+        patients_total = Patient.objects.filter(professional=professional).count() if professional else 0
+
+    # Today's consultations
+    today_qs = list(base_qs.filter(date=today).order_by('time'))
+    today_count = len(today_qs)
+    today_pending = sum(1 for c in today_qs if c.status == 'pending')
+
+    # This week vs last week (Mon–today)
+    week_start = today - timedelta(days=today.weekday())
+    last_week_start = week_start - timedelta(days=7)
+    this_week_count = base_qs.filter(date__gte=week_start, date__lte=today).count()
+    last_week_count = base_qs.filter(date__gte=last_week_start, date__lt=week_start).count()
+
+    # Next upcoming pending consultations (today + future)
+    upcoming = list(
+        base_qs.filter(date__gte=today, status='pending').order_by('date', 'time')[:5]
+    )
+
+    # Recent patients
+    if is_admin:
+        recent_patients = list(Patient.objects.select_related('professional').order_by('-created_at')[:5])
+    else:
+        recent_patients = (
+            list(Patient.objects.filter(professional=professional).order_by('-created_at')[:5])
+            if professional else []
+        )
+
+    # Pending payment requests (admin only)
+    pending_payments_count = 0
+    if is_admin:
+        try:
+            from apps.finance.models import PaymentRequest
+            pending_payments_count = sum(
+                1 for r in PaymentRequest.objects.select_related('consultation')
+                if r.status in ('pending', 'partial')
+            )
+        except Exception:
+            pending_payments_count = 0
+
+    # Consultations per day for the last 7 days (for bar chart)
+    last_7_days = [today - timedelta(days=i) for i in range(6, -1, -1)]
+    day_labels = []
+    day_counts = []
+    for day in last_7_days:
+        day_labels.append(day.strftime('%a'))
+        day_counts.append(base_qs.filter(date=day).count())
+
+    import json
+    return render(request, 'pages/index.html', {
+        'segment': 'dashboard',
+        'today': today,
+        'is_admin': is_admin,
+        'professional': professional,
+        'today_count': today_count,
+        'today_pending': today_pending,
+        'today_consultations': today_qs,
+        'patients_total': patients_total,
+        'this_week_count': this_week_count,
+        'last_week_count': last_week_count,
+        'upcoming': upcoming,
+        'recent_patients': recent_patients,
+        'pending_payments_count': pending_payments_count,
+        'day_labels_json': json.dumps(day_labels),
+        'day_counts_json': json.dumps(day_counts),
+    })
 
 class CustomLoginView(auth_views.LoginView):
     template_name = 'pages/sign-in.html'
@@ -1157,6 +1241,58 @@ def consultorios_calendar(request):
                 if not month_map[d]:
                     month_map.pop(d, None)
 
+    # Data for the "Nueva Cita" offcanvas drawer
+    cal_is_admin = request.user.is_staff
+    cal_professional = None
+    if not cal_is_admin:
+        try:
+            cal_professional = Professional.objects.get(user=request.user)
+        except Professional.DoesNotExist:
+            pass
+    cal_patients = Patient.objects.all() if cal_is_admin else Patient.objects.filter(professional=cal_professional)
+    cal_all_professionals = Professional.objects.all() if cal_is_admin else None
+    all_active_consultorios = Consultorio.objects.filter(is_active=True)
+
+    # ── Business hours for FullCalendar schedule shading (professional only) ──
+    import json as _json
+    business_hours_json = 'false'   # FullCalendar default: no shading
+    exceptions_json = '{}'
+    slot_min_time = '07:00'
+    slot_max_time = '21:00'
+
+    if not cal_is_admin and cal_professional:
+        avs = list(cal_professional.weekly_availability.all())
+        bh = []
+        for av in avs:
+            if not av.is_closed and av.start_time and av.end_time:
+                # Django weekday: Mon=0…Sun=6 → FullCalendar: Sun=0, Mon=1…Sat=6
+                fc_day = (av.weekday + 1) % 7
+                bh.append({
+                    'daysOfWeek': [fc_day],
+                    'startTime': av.start_time.strftime('%H:%M'),
+                    'endTime': av.end_time.strftime('%H:%M'),
+                })
+        if bh:
+            business_hours_json = _json.dumps(bh)
+            # Narrow visible slot range: 1h before earliest start, 1h after latest end
+            work_starts = [av.start_time for av in avs if not av.is_closed and av.start_time]
+            work_ends   = [av.end_time   for av in avs if not av.is_closed and av.end_time]
+            if work_starts and work_ends:
+                earliest_h = min(t.hour for t in work_starts)
+                latest_h   = max(t.hour + (1 if t.minute > 0 else 0) for t in work_ends)
+                slot_min_time = f'{max(0, earliest_h - 1):02d}:00'
+                slot_max_time = f'{min(24, latest_h + 1):02d}:00'
+
+        # Serialize future exceptions so JS can check them in selectAllow
+        excs = {}
+        for ex in cal_professional.availability_exceptions.filter(date__gte=ddate.today()):
+            excs[ex.date.isoformat()] = {
+                'is_closed': ex.is_closed,
+                'start': ex.start_time.strftime('%H:%M') if ex.start_time else None,
+                'end':   ex.end_time.strftime('%H:%M')   if ex.end_time   else None,
+            }
+        exceptions_json = _json.dumps(excs)
+
     context = {
         'segment': 'consultorios_calendar',
         'consultorios': consultorios,
@@ -1169,6 +1305,18 @@ def consultorios_calendar(request):
         'target_date': target_date,
         'selected_consultorio_id': int(consultorio_id) if consultorio_id and str(consultorio_id).isdigit() else '',
         'mode': mode,
+        # Offcanvas form data
+        'is_admin': cal_is_admin,
+        'professional': cal_professional,
+        'patients': cal_patients,
+        'all_professionals': cal_all_professionals,
+        'all_active_consultorios': all_active_consultorios,
+        'today': ddate.today(),
+        # Schedule shading for FullCalendar
+        'business_hours_json': business_hours_json,
+        'exceptions_json': exceptions_json,
+        'slot_min_time': slot_min_time,
+        'slot_max_time': slot_max_time,
     }
     return render(request, 'pages/consultorios_calendar.html', context)
 

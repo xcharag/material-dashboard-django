@@ -1,679 +1,469 @@
 {% extends "layouts/base.html" %}
 {% load static %}
 
+{% block title %} Panel de Control {% endblock %}
+
+{% block extrastyle %}
+<style>
+  .stat-icon-circle {
+    width: 48px; height: 48px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .stat-card {
+    transition: transform .18s ease, box-shadow .18s ease;
+  }
+  .stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 28px rgba(0,0,0,.1) !important;
+  }
+  .avatar-circle {
+    width: 38px; height: 38px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .85rem; font-weight: 700; color: #fff; flex-shrink: 0;
+  }
+  .schedule-item {
+    display: flex; align-items: center; gap: .85rem;
+    padding: .7rem 0; border-bottom: 1px solid #f0f0f0;
+  }
+  .schedule-item:last-child { border-bottom: none; }
+  .time-badge {
+    min-width: 52px; text-align: center;
+    font-size: .72rem; font-weight: 700; color: #344767;
+    background: #f0f2f5; border-radius: .5rem; padding: .3em .5em;
+    flex-shrink: 0;
+  }
+  .quick-action {
+    display: flex; align-items: center; gap: .75rem;
+    padding: .75rem 1rem; border-radius: .75rem;
+    text-decoration: none; color: inherit;
+    transition: background .15s;
+  }
+  .quick-action:hover { background: #f8f9fa; color: inherit; }
+  .quick-action .qa-icon {
+    width: 36px; height: 36px; border-radius: .6rem;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .patient-row {
+    display: flex; align-items: center; gap: .75rem;
+    padding: .6rem 0; border-bottom: 1px solid #f0f0f0;
+  }
+  .patient-row:last-child { border-bottom: none; }
+  .delta-badge {
+    font-size: .68rem; font-weight: 700;
+    padding: .2em .55em; border-radius: .4rem;
+  }
+  .empty-hint { color: #b0b8c9; font-size: .8rem; }
+</style>
+{% endblock extrastyle %}
 
 {% block content %}
+<div class="container-fluid py-4">
 
-    <div class="container-fluid py-2">
-      <div class="row">
-        <div class="ms-3">
-          <h3 class="mb-0 h4 font-weight-bolder">Panel de Control</h3>
-          <p class="mb-4">
-            Revisa tus citas agendadas, tus pacientes, sus proximas sesiones y mucho más.
-          </p>
-        </div>
-        <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
-          <div class="card">
-            <div class="card-header p-2 ps-3">
-              <div class="d-flex justify-content-between">
-                <div>
-                  <p class="text-sm mb-0 text-capitalize">Citas para hoy</p>
-                  <h4 class="mb-0">4 citas</h4>
-                </div>
-                <div class="icon icon-md icon-shape bg-gradient-dark shadow-dark shadow text-center border-radius-lg">
-                  <i class="material-symbols-rounded opacity-10">airline_seat_recline_extra</i>
-                </div>
-              </div>
-            </div>
-            <hr class="dark horizontal my-0">
-            <div class="card-footer p-2 ps-3">
-              <p class="mb-0 text-sm"><span class="text-success font-weight-bolder">+50% </span>mas que la anterior semana</p>
-            </div>
+  <!-- Welcome Header -->
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-4 gap-2">
+    <div>
+      <h4 class="mb-0 font-weight-bolder">
+        {% if professional %}
+          Hola, {{ professional.first_name }} 👋
+        {% else %}
+          Panel de Control
+        {% endif %}
+      </h4>
+      <p class="text-sm text-secondary mb-0">
+        {% now "l, j \d\e F \d\e Y" %}
+      </p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a href="{% url 'consult' %}" class="btn bg-gradient-dark btn-sm d-flex align-items-center gap-1">
+        <i class="material-symbols-rounded" style="font-size:1rem">event_available</i>
+        Nueva Cita
+      </a>
+      {% if is_admin %}
+      <a href="{% url 'patients' %}" class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1">
+        <i class="material-symbols-rounded" style="font-size:1rem">person_add</i>
+        Nuevo Paciente
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- KPI Stat Cards -->
+  <div class="row g-3 mb-4">
+
+    <!-- Citas hoy -->
+    <div class="col-6 col-xl-3">
+      <div class="card border-0 shadow-sm stat-card h-100">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="stat-icon-circle" style="background:linear-gradient(195deg,#1A73E8,#1557B0)">
+            <i class="material-symbols-rounded text-white" style="font-size:1.3rem">today</i>
           </div>
-        </div>
-        <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
-          <div class="card">
-            <div class="card-header p-2 ps-3">
-              <div class="d-flex justify-content-between">
-                <div>
-                  <p class="text-sm mb-0 text-capitalize">Pacientes Pendientes</p>
-                  <h4 class="mb-0">1</h4>
-                </div>
-                <div class="icon icon-md icon-shape bg-gradient-dark shadow-dark shadow text-center border-radius-lg">
-                  <i class="material-symbols-rounded opacity-10">person</i>
-                </div>
-              </div>
-            </div>
-            <hr class="dark horizontal my-0">
-            <div class="card-footer p-2 ps-3">
-              <p class="mb-0 text-sm"><span class="text-success font-weight-bolder">+10% </span>mas que el anterior mes</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col-lg-4 col-md-6 mt-4 mb-4">
-          <div class="card">
-            <div class="card-body">
-              <h6 class="mb-0 ">Visitas de Pacientes</h6>
-              <p class="text-sm ">Ultimos 7 dias</p>
-              <div class="pe-2">
-                <div class="chart">
-                  <canvas id="chart-bars" class="chart-canvas" height="170"></canvas>
-                </div>
-              </div>
-              <hr class="dark horizontal">
-              <div class="d-flex ">
-                <i class="material-symbols-rounded text-sm my-auto me-1">schedule</i>
-                <p class="mb-0 text-sm"> actualizado hace 1 hora </p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="col-lg-4 col-md-6 mt-4 mb-4">
-          <div class="card ">
-            <div class="card-body">
-              <h6 class="mb-0 "> Grado Error EEG </h6>
-              <p class="text-sm "> (<span class="font-weight-bolder">+15%</span>) aciertos el dia de hoy </p>
-              <div class="pe-2">
-                <div class="chart">
-                  <canvas id="chart-line" class="chart-canvas" height="170"></canvas>
-                </div>
-              </div>
-              <hr class="dark horizontal">
-              <div class="d-flex ">
-                <i class="material-symbols-rounded text-sm my-auto me-1">schedule</i>
-                <p class="mb-0 text-sm"> actualizado hace 4 min </p>
-              </div>
-            </div>
+          <div class="flex-grow-1">
+            <p class="text-xs text-secondary mb-0">Citas hoy</p>
+            <h4 class="mb-0 font-weight-bolder">{{ today_count }}</h4>
+            {% if today_pending %}
+            <span class="delta-badge" style="background:#fff3e0;color:#e65100">{{ today_pending }} pendiente{{ today_pending|pluralize:"s" }}</span>
+            {% endif %}
           </div>
         </div>
       </div>
-{#      <div class="row mb-4">#}
-{#        <div class="col-lg-8 col-md-6 mb-md-0 mb-4">#}
-{#          <div class="card">#}
-{#            <div class="card-header pb-0">#}
-{#              <div class="row">#}
-{#                <div class="col-lg-6 col-7">#}
-{#                  <h6>Projects</h6>#}
-{#                  <p class="text-sm mb-0">#}
-{#                    <i class="fa fa-check text-info" aria-hidden="true"></i>#}
-{#                    <span class="font-weight-bold ms-1">30 done</span> this month#}
-{#                  </p>#}
-{#                </div>#}
-{#                <div class="col-lg-6 col-5 my-auto text-end">#}
-{#                  <div class="dropdown float-lg-end pe-4">#}
-{#                    <a class="cursor-pointer" id="dropdownTable" data-bs-toggle="dropdown" aria-expanded="false">#}
-{#                      <i class="fa fa-ellipsis-v text-secondary"></i>#}
-{#                    </a>#}
-{#                    <ul class="dropdown-menu px-2 py-3 ms-sm-n4 ms-n5" aria-labelledby="dropdownTable">#}
-{#                      <li><a class="dropdown-item border-radius-md" href="javascript:;">Action</a></li>#}
-{#                      <li><a class="dropdown-item border-radius-md" href="javascript:;">Another action</a></li>#}
-{#                      <li><a class="dropdown-item border-radius-md" href="javascript:;">Something else here</a></li>#}
-{#                    </ul>#}
-{#                  </div>#}
-{#                </div>#}
-{#              </div>#}
-{#            </div>#}
-{#            <div class="card-body px-0 pb-2">#}
-{#              <div class="table-responsive">#}
-{#                <table class="table align-items-center mb-0">#}
-{#                  <thead>#}
-{#                    <tr>#}
-{#                      <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Companies</th>#}
-{#                      <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Members</th>#}
-{#                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Budget</th>#}
-{#                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Completion</th>#}
-{#                    </tr>#}
-{#                  </thead>#}
-{#                  <tbody>#}
-{#                    <tr>#}
-{#                      <td>#}
-{#                        <div class="d-flex px-2 py-1">#}
-{#                          <div>#}
-{#                            <img src="{% static "assets/img/small-logos/logo-xd.svg" %}" class="avatar avatar-sm me-3" alt="xd">#}
-{#                          </div>#}
-{#                          <div class="d-flex flex-column justify-content-center">#}
-{#                            <h6 class="mb-0 text-sm">Material XD Version</h6>#}
-{#                          </div>#}
-{#                        </div>#}
-{#                      </td>#}
-{#                      <td>#}
-{#                        <div class="avatar-group mt-2">#}
-{#                          <a href="javascript:;" class="avatar avatar-xs rounded-circle" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Ryan Tompson">#}
-{#                            <img src="{% static "assets/img/team-1.jpg" %}" alt="team1">#}
-{#                          </a>#}
-{#                          <a href="javascript:;" class="avatar avatar-xs rounded-circle" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Romina Hadid">#}
-{#                            <img src="{% static "assets/img/team-2.jpg" %}" alt="team2">#}
-{#                          </a>#}
-{#                          <a href="javascript:;" class="avatar avatar-xs rounded-circle" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Alexander Smith">#}
-{#                            <img src="{% static "assets/img/team-3.jpg" %}" alt="team3">#}
-{#                          </a>#}
-{#                          <a href="javascript:;" class="avatar avatar-xs rounded-circle" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Jessica Doe">#}
-{#                            <img src="{% static "assets/img/team-4.jpg" %}" alt="team4">#}
-{#                          </a>#}
-{#                        </div>#}
-{#                      </td>#}
-{#                      <td class="align-middle text-center text-sm">#}
-{#                        <span class="text-xs font-weight-bold"> $14,000 </span>#}
-{#                      </td>#}
-{#                      <td class="align-middle">#}
-{#                        <div class="progress-wrapper w-75 mx-auto">#}
-{#                          <div class="progress-info">#}
-{#                            <div class="progress-percentage">#}
-{#                              <span class="text-xs font-weight-bold">60%</span>#}
-{#                            </div>#}
-{#                          </div>#}
-{#                          <div class="progress">#}
-{#                            <div class="progress-bar bg-gradient-info w-60" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100"></div>#}
-{#                          </div>#}
-{#                        </div>#}
-{#                      </td>#}
-{#                    </tr>#}
-{#                    <tr>#}
-{#                      <td>#}
-{#                        <div class="d-flex px-2 py-1">#}
-{#                          <div>#}
-{#                            <img src="{% static "assets/img/small-logos/logo-atlassian.svg" %}" class="avatar avatar-sm me-3" alt="atlassian">#}
-{#                          </div>#}
-{#                          <div class="d-flex flex-column justify-content-center">#}
-{#                            <h6 class="mb-0 text-sm">Add Progress Track</h6>#}
-{#                          </div>#}
-{#                        </div>#}
-{#                      </td>#}
-{#                      <td>#}
-{#                        <div class="avatar-group mt-2">#}
-{#                          <a href="javascript:;" class="avatar avatar-xs rounded-circle" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Romina Hadid">#}
-{#                            <img src="{% static "assets/img/team-2.jpg" %}" alt="team5">#}
-{#                          </a>#}
-{#                          <a href="javascript:;" class="avatar avatar-xs rounded-circle" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Jessica Doe">#}
-{#                            <img src="{% static "assets/img/team-4.jpg" %}" alt="team6">#}
-{#                          </a>#}
-{#                        </div>#}
-{#                      </td>#}
-{#                      <td class="align-middle text-center text-sm">#}
-{#                        <span class="text-xs font-weight-bold"> $3,000 </span>#}
-{#                      </td>#}
-{#                      <td class="align-middle">#}
-{#                        <div class="progress-wrapper w-75 mx-auto">#}
-{#                          <div class="progress-info">#}
-{#                            <div class="progress-percentage">#}
-{#                              <span class="text-xs font-weight-bold">10%</span>#}
-{#                            </div>#}
-{#                          </div>#}
-{#                          <div class="progress">#}
-{#                            <div class="progress-bar bg-gradient-info w-10" role="progressbar" aria-valuenow="10" aria-valuemin="0" aria-valuemax="100"></div>#}
-{#                          </div>#}
-{#                        </div>#}
-{#                      </td>#}
-{#                    </tr>#}
-{#                    <tr>#}
-{#                      <td>#}
-{#                        <div class="d-flex px-2 py-1">#}
-{#                          <div>#}
-{#                            <img src="{% static "assets/img/small-logos/logo-slack.svg" %}" class="avatar avatar-sm me-3" alt="team7">#}
-{#                          </div>#}
-{#                          <div class="d-flex flex-column justify-content-center">#}
-{#                            <h6 class="mb-0 text-sm">Fix Platform Errors</h6>#}
-{#                          </div>#}
-{#                        </div>#}
-{#                      </td>#}
-{#                      <td>#}
-{#                        <div class="avatar-group mt-2">#}
-{#                          <a href="javascript:;" class="avatar avatar-xs rounded-circle" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Romina Hadid">#}
-{#                            <img src="{% static "assets/img/team-3.jpg" %}" alt="team8">#}
-{#                          </a>#}
-{#                          <a href="javascript:;" class="avatar avatar-xs rounded-circle" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Jessica Doe">#}
-{#                            <img src="{% static "assets/img/team-1.jpg" %}" alt="team9">#}
-{#                          </a>#}
-{#                        </div>#}
-{#                      </td>#}
-{#                      <td class="align-middle text-center text-sm">#}
-{#                        <span class="text-xs font-weight-bold"> Not set </span>#}
-{#                      </td>#}
-{#                      <td class="align-middle">#}
-{#                        <div class="progress-wrapper w-75 mx-auto">#}
-{#                          <div class="progress-info">#}
-{#                            <div class="progress-percentage">#}
-{#                              <span class="text-xs font-weight-bold">100%</span>#}
-{#                            </div>#}
-{#                          </div>#}
-{#                          <div class="progress">#}
-{#                            <div class="progress-bar bg-gradient-success w-100" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>#}
-{#                          </div>#}
-{#                        </div>#}
-{#                      </td>#}
-{#                    </tr>#}
-{#                    <tr>#}
-{#                      <td>#}
-{#                        <div class="d-flex px-2 py-1">#}
-{#                          <div>#}
-{#                            <img src="{% static "assets/img/small-logos/logo-spotify.svg" %}" class="avatar avatar-sm me-3" alt="spotify">#}
-{#                          </div>#}
-{#                          <div class="d-flex flex-column justify-content-center">#}
-{#                            <h6 class="mb-0 text-sm">Launch our Mobile App</h6>#}
-{#                          </div>#}
-{#                        </div>#}
-{#                      </td>#}
-{#                      <td>#}
-{#                        <div class="avatar-group mt-2">#}
-{#                          <a href="javascript:;" class="avatar avatar-xs rounded-circle" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Ryan Tompson">#}
-{#                            <img src="{% static "assets/img/team-4.jpg" %}" alt="user1">#}
-{#                          </a>#}
-{#                          <a href="javascript:;" class="avatar avatar-xs rounded-circle" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Romina Hadid">#}
-{#                            <img src="{% static "assets/img/team-3.jpg" %}" alt="user2">#}
-{#                          </a>#}
-{#                          <a href="javascript:;" class="avatar avatar-xs rounded-circle" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Alexander Smith">#}
-{#                            <img src="{% static "assets/img/team-4.jpg" %}" alt="user3">#}
-{#                          </a>#}
-{#                          <a href="javascript:;" class="avatar avatar-xs rounded-circle" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Jessica Doe">#}
-{#                            <img src="{% static "assets/img/team-1.jpg" %}" alt="user4">#}
-{#                          </a>#}
-{#                        </div>#}
-{#                      </td>#}
-{#                      <td class="align-middle text-center text-sm">#}
-{#                        <span class="text-xs font-weight-bold"> $20,500 </span>#}
-{#                      </td>#}
-{#                      <td class="align-middle">#}
-{#                        <div class="progress-wrapper w-75 mx-auto">#}
-{#                          <div class="progress-info">#}
-{#                            <div class="progress-percentage">#}
-{#                              <span class="text-xs font-weight-bold">100%</span>#}
-{#                            </div>#}
-{#                          </div>#}
-{#                          <div class="progress">#}
-{#                            <div class="progress-bar bg-gradient-success w-100" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>#}
-{#                          </div>#}
-{#                        </div>#}
-{#                      </td>#}
-{#                    </tr>#}
-{#                    <tr>#}
-{#                      <td>#}
-{#                        <div class="d-flex px-2 py-1">#}
-{#                          <div>#}
-{#                            <img src="{% static "assets/img/small-logos/logo-jira.svg" %}" class="avatar avatar-sm me-3" alt="jira">#}
-{#                          </div>#}
-{#                          <div class="d-flex flex-column justify-content-center">#}
-{#                            <h6 class="mb-0 text-sm">Add the New Pricing Page</h6>#}
-{#                          </div>#}
-{#                        </div>#}
-{#                      </td>#}
-{#                      <td>#}
-{#                        <div class="avatar-group mt-2">#}
-{#                          <a href="javascript:;" class="avatar avatar-xs rounded-circle" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Ryan Tompson">#}
-{#                            <img src="{% static "assets/img/team-4.jpg" %}" alt="user5">#}
-{#                          </a>#}
-{#                        </div>#}
-{#                      </td>#}
-{#                      <td class="align-middle text-center text-sm">#}
-{#                        <span class="text-xs font-weight-bold"> $500 </span>#}
-{#                      </td>#}
-{#                      <td class="align-middle">#}
-{#                        <div class="progress-wrapper w-75 mx-auto">#}
-{#                          <div class="progress-info">#}
-{#                            <div class="progress-percentage">#}
-{#                              <span class="text-xs font-weight-bold">25%</span>#}
-{#                            </div>#}
-{#                          </div>#}
-{#                          <div class="progress">#}
-{#                            <div class="progress-bar bg-gradient-info w-25" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="25"></div>#}
-{#                          </div>#}
-{#                        </div>#}
-{#                      </td>#}
-{#                    </tr>#}
-{#                    <tr>#}
-{#                      <td>#}
-{#                        <div class="d-flex px-2 py-1">#}
-{#                          <div>#}
-{#                            <img src="{% static "assets/img/small-logos/logo-invision.svg" %}" class="avatar avatar-sm me-3" alt="invision">#}
-{#                          </div>#}
-{#                          <div class="d-flex flex-column justify-content-center">#}
-{#                            <h6 class="mb-0 text-sm">Redesign New Online Shop</h6>#}
-{#                          </div>#}
-{#                        </div>#}
-{#                      </td>#}
-{#                      <td>#}
-{#                        <div class="avatar-group mt-2">#}
-{#                          <a href="javascript:;" class="avatar avatar-xs rounded-circle" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Ryan Tompson">#}
-{#                            <img src="{% static "assets/img/team-1.jpg" %}" alt="user6">#}
-{#                          </a>#}
-{#                          <a href="javascript:;" class="avatar avatar-xs rounded-circle" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Jessica Doe">#}
-{#                            <img src="{% static "assets/img/team-4.jpg" %}" alt="user7">#}
-{#                          </a>#}
-{#                        </div>#}
-{#                      </td>#}
-{#                      <td class="align-middle text-center text-sm">#}
-{#                        <span class="text-xs font-weight-bold"> $2,000 </span>#}
-{#                      </td>#}
-{#                      <td class="align-middle">#}
-{#                        <div class="progress-wrapper w-75 mx-auto">#}
-{#                          <div class="progress-info">#}
-{#                            <div class="progress-percentage">#}
-{#                              <span class="text-xs font-weight-bold">40%</span>#}
-{#                            </div>#}
-{#                          </div>#}
-{#                          <div class="progress">#}
-{#                            <div class="progress-bar bg-gradient-info w-40" role="progressbar" aria-valuenow="40" aria-valuemin="0" aria-valuemax="40"></div>#}
-{#                          </div>#}
-{#                        </div>#}
-{#                      </td>#}
-{#                    </tr>#}
-{#                  </tbody>#}
-{#                </table>#}
-{#              </div>#}
-{#            </div>#}
-{#          </div>#}
-{#        </div>#}
-{#        <div class="col-lg-4 col-md-6">#}
-{#          <div class="card h-100">#}
-{#            <div class="card-header pb-0">#}
-{#              <h6>Orders overview</h6>#}
-{#              <p class="text-sm">#}
-{#                <i class="fa fa-arrow-up text-success" aria-hidden="true"></i>#}
-{#                <span class="font-weight-bold">24%</span> this month#}
-{#              </p>#}
-{#            </div>#}
-{#            <div class="card-body p-3">#}
-{#              <div class="timeline timeline-one-side">#}
-{#                <div class="timeline-block mb-3">#}
-{#                  <span class="timeline-step">#}
-{#                    <i class="material-symbols-rounded text-success text-gradient">notifications</i>#}
-{#                  </span>#}
-{#                  <div class="timeline-content">#}
-{#                    <h6 class="text-dark text-sm font-weight-bold mb-0">$2400, Design changes</h6>#}
-{#                    <p class="text-secondary font-weight-bold text-xs mt-1 mb-0">22 DEC 7:20 PM</p>#}
-{#                  </div>#}
-{#                </div>#}
-{#                <div class="timeline-block mb-3">#}
-{#                  <span class="timeline-step">#}
-{#                    <i class="material-symbols-rounded text-danger text-gradient">code</i>#}
-{#                  </span>#}
-{#                  <div class="timeline-content">#}
-{#                    <h6 class="text-dark text-sm font-weight-bold mb-0">New order #1832412</h6>#}
-{#                    <p class="text-secondary font-weight-bold text-xs mt-1 mb-0">21 DEC 11 PM</p>#}
-{#                  </div>#}
-{#                </div>#}
-{#                <div class="timeline-block mb-3">#}
-{#                  <span class="timeline-step">#}
-{#                    <i class="material-symbols-rounded text-info text-gradient">shopping_cart</i>#}
-{#                  </span>#}
-{#                  <div class="timeline-content">#}
-{#                    <h6 class="text-dark text-sm font-weight-bold mb-0">Server payments for April</h6>#}
-{#                    <p class="text-secondary font-weight-bold text-xs mt-1 mb-0">21 DEC 9:34 PM</p>#}
-{#                  </div>#}
-{#                </div>#}
-{#                <div class="timeline-block mb-3">#}
-{#                  <span class="timeline-step">#}
-{#                    <i class="material-symbols-rounded text-warning text-gradient">credit_card</i>#}
-{#                  </span>#}
-{#                  <div class="timeline-content">#}
-{#                    <h6 class="text-dark text-sm font-weight-bold mb-0">New card added for order #4395133</h6>#}
-{#                    <p class="text-secondary font-weight-bold text-xs mt-1 mb-0">20 DEC 2:20 AM</p>#}
-{#                  </div>#}
-{#                </div>#}
-{#                <div class="timeline-block mb-3">#}
-{#                  <span class="timeline-step">#}
-{#                    <i class="material-symbols-rounded text-primary text-gradient">key</i>#}
-{#                  </span>#}
-{#                  <div class="timeline-content">#}
-{#                    <h6 class="text-dark text-sm font-weight-bold mb-0">Unlock packages for development</h6>#}
-{#                    <p class="text-secondary font-weight-bold text-xs mt-1 mb-0">18 DEC 4:54 AM</p>#}
-{#                  </div>#}
-{#                </div>#}
-{#                <div class="timeline-block">#}
-{#                  <span class="timeline-step">#}
-{#                    <i class="material-symbols-rounded text-dark text-gradient">payments</i>#}
-{#                  </span>#}
-{#                  <div class="timeline-content">#}
-{#                    <h6 class="text-dark text-sm font-weight-bold mb-0">New order #9583120</h6>#}
-{#                    <p class="text-secondary font-weight-bold text-xs mt-1 mb-0">17 DEC</p>#}
-{#                  </div>#}
-{#                </div>#}
-{#              </div>#}
-{#            </div>#}
-{#          </div>#}
-{#        </div>#}
-{#      </div>#}
-      {% include "includes/footer-main.html" %}
     </div>
 
-  {% endblock content %}
+    <!-- Pacientes -->
+    <div class="col-6 col-xl-3">
+      <div class="card border-0 shadow-sm stat-card h-100">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="stat-icon-circle" style="background:linear-gradient(195deg,#66BB6A,#43A047)">
+            <i class="material-symbols-rounded text-white" style="font-size:1.3rem">group</i>
+          </div>
+          <div class="flex-grow-1">
+            <p class="text-xs text-secondary mb-0">
+              {% if is_admin %}Pacientes totales{% else %}Mis pacientes{% endif %}
+            </p>
+            <h4 class="mb-0 font-weight-bolder">{{ patients_total }}</h4>
+          </div>
+        </div>
+      </div>
+    </div>
 
-  {% block extra_js %}
-  
-  <script src="{% static "assets/js/plugins/chartjs.min.js" %}"></script>
-  <script>
-    var ctx = document.getElementById("chart-bars").getContext("2d");
+    <!-- Esta semana vs la anterior -->
+    <div class="col-6 col-xl-3">
+      <div class="card border-0 shadow-sm stat-card h-100">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="stat-icon-circle" style="background:linear-gradient(195deg,#7B1FA2,#6A1B9A)">
+            <i class="material-symbols-rounded text-white" style="font-size:1.3rem">date_range</i>
+          </div>
+          <div class="flex-grow-1">
+            <p class="text-xs text-secondary mb-0">Esta semana</p>
+            <h4 class="mb-0 font-weight-bolder">{{ this_week_count }}</h4>
+            {% if last_week_count > 0 %}
+              {% if this_week_count >= last_week_count %}
+                <span class="delta-badge" style="background:#e8f5e9;color:#2e7d32">
+                  +{{ this_week_count|add:"-"|add:last_week_count }} vs semana ant.
+                </span>
+              {% else %}
+                <span class="delta-badge" style="background:#fce4ec;color:#c62828">
+                  vs {{ last_week_count }} semana ant.
+                </span>
+              {% endif %}
+            {% else %}
+              <span class="empty-hint">sin citas la semana ant.</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
 
-    new Chart(ctx, {
-      type: "bar",
-      data: {
-        labels: ["M", "T", "W", "T", "F", "S", "S"],
-        datasets: [{
-          label: "Views",
-          tension: 0.4,
-          borderWidth: 0,
-          borderRadius: 4,
-          borderSkipped: false,
-          backgroundColor: "#43A047",
-          data: [50, 45, 22, 28, 50, 60, 76],
-          barThickness: 'flex'
-        }, ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: false,
+    <!-- Admin: Cobros pendientes / Professional: Próximas citas -->
+    <div class="col-6 col-xl-3">
+      {% if is_admin %}
+      <a href="{% url 'finance_requests' %}" class="card border-0 shadow-sm stat-card h-100 text-decoration-none">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="stat-icon-circle" style="background:linear-gradient(195deg,#EC407A,#D81B60)">
+            <i class="material-symbols-rounded text-white" style="font-size:1.3rem">receipt_long</i>
+          </div>
+          <div class="flex-grow-1">
+            <p class="text-xs text-secondary mb-0">Cobros pendientes</p>
+            <h4 class="mb-0 font-weight-bolder">{{ pending_payments_count }}</h4>
+          </div>
+          <i class="material-symbols-rounded text-secondary" style="font-size:1rem">chevron_right</i>
+        </div>
+      </a>
+      {% else %}
+      <div class="card border-0 shadow-sm stat-card h-100">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="stat-icon-circle" style="background:linear-gradient(195deg,#FFA726,#FB8C00)">
+            <i class="material-symbols-rounded text-white" style="font-size:1.3rem">upcoming</i>
+          </div>
+          <div class="flex-grow-1">
+            <p class="text-xs text-secondary mb-0">Próximas pendientes</p>
+            <h4 class="mb-0 font-weight-bolder">{{ upcoming|length }}</h4>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- Main content row -->
+  <div class="row g-4 mb-4">
+
+    <!-- Today's Schedule -->
+    <div class="col-12 col-lg-5">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <h6 class="font-weight-bolder mb-0 d-flex align-items-center gap-2">
+              <i class="material-symbols-rounded text-secondary" style="font-size:1.1rem">event_note</i>
+              Agenda de hoy
+            </h6>
+            <a href="{% url 'consult' %}" class="text-xs text-secondary text-decoration-none d-flex align-items-center gap-1">
+              Ver todas <i class="material-symbols-rounded" style="font-size:.85rem">chevron_right</i>
+            </a>
+          </div>
+
+          {% if today_consultations %}
+            {% for c in today_consultations %}
+            <div class="schedule-item">
+              <span class="time-badge">{{ c.time|time:"H:i" }}</span>
+              <div class="avatar-circle" style="background:{{ c.patient.color|default:'#1A73E8' }}">
+                {{ c.patient.first_name|slice:":1" }}{{ c.patient.last_name|slice:":1" }}
+              </div>
+              <div class="flex-grow-1 min-w-0">
+                <div class="font-weight-bold text-sm text-truncate" style="color:#344767">
+                  {{ c.patient.first_name }} {{ c.patient.last_name }}
+                </div>
+                <div class="text-xs text-secondary text-truncate">
+                  {% if c.consultorio_fk %}{{ c.consultorio_fk.name }}{% else %}{{ c.consultory|default:"Sin consultorio" }}{% endif %}
+                  · {{ c.duration }} min
+                </div>
+              </div>
+              <span class="badge bg-gradient-{% if c.status == 'attended' or c.status == 'completed' %}success{% elif c.status == 'cancelled' or c.status == 'no_show' %}danger{% else %}secondary{% endif %}" style="font-size:.62rem">
+                {{ c.get_status_display }}
+              </span>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="text-center py-4">
+              <i class="material-symbols-rounded d-block mb-2" style="font-size:2.5rem;color:#d1d5db">event_busy</i>
+              <p class="text-sm text-secondary mb-0">Sin citas para hoy</p>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Right column: Quick Actions + Upcoming -->
+    <div class="col-12 col-lg-7">
+      <div class="row g-4">
+
+        <!-- Quick Actions -->
+        <div class="col-12">
+          <div class="card border-0 shadow-sm">
+            <div class="card-body pb-2">
+              <h6 class="font-weight-bolder mb-3 d-flex align-items-center gap-2">
+                <i class="material-symbols-rounded text-secondary" style="font-size:1.1rem">bolt</i>
+                Accesos rápidos
+              </h6>
+              <div class="row g-2">
+                <div class="col-6 col-sm-3">
+                  <a href="{% url 'consult' %}" class="quick-action flex-column text-center p-2">
+                    <div class="qa-icon mx-auto mb-1" style="background:#e3f2fd">
+                      <i class="material-symbols-rounded" style="color:#1A73E8;font-size:1.1rem">event_available</i>
+                    </div>
+                    <span class="text-xs font-weight-bold" style="color:#344767">Citas</span>
+                  </a>
+                </div>
+                <div class="col-6 col-sm-3">
+                  <a href="{% url 'patients' %}" class="quick-action flex-column text-center p-2">
+                    <div class="qa-icon mx-auto mb-1" style="background:#e8f5e9">
+                      <i class="material-symbols-rounded" style="color:#2e7d32;font-size:1.1rem">group</i>
+                    </div>
+                    <span class="text-xs font-weight-bold" style="color:#344767">Pacientes</span>
+                  </a>
+                </div>
+                <div class="col-6 col-sm-3">
+                  <a href="{% url 'report_sessions' %}" class="quick-action flex-column text-center p-2">
+                    <div class="qa-icon mx-auto mb-1" style="background:#ede7f6">
+                      <i class="material-symbols-rounded" style="color:#512da8;font-size:1.1rem">psychology</i>
+                    </div>
+                    <span class="text-xs font-weight-bold" style="color:#344767">IA Clínica</span>
+                  </a>
+                </div>
+                <div class="col-6 col-sm-3">
+                  {% if is_admin %}
+                  <a href="{% url 'finance_dashboard' %}" class="quick-action flex-column text-center p-2">
+                    <div class="qa-icon mx-auto mb-1" style="background:#fce4ec">
+                      <i class="material-symbols-rounded" style="color:#c2185b;font-size:1.1rem">payments</i>
+                    </div>
+                    <span class="text-xs font-weight-bold" style="color:#344767">Finanzas</span>
+                  </a>
+                  {% else %}
+                  <a href="{% url 'consultorios_calendar' %}" class="quick-action flex-column text-center p-2">
+                    <div class="qa-icon mx-auto mb-1" style="background:#fff3e0">
+                      <i class="material-symbols-rounded" style="color:#e65100;font-size:1.1rem">calendar_month</i>
+                    </div>
+                    <span class="text-xs font-weight-bold" style="color:#344767">Calendario</span>
+                  </a>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upcoming Appointments -->
+        <div class="col-12">
+          <div class="card border-0 shadow-sm">
+            <div class="card-body">
+              <div class="d-flex align-items-center justify-content-between mb-3">
+                <h6 class="font-weight-bolder mb-0 d-flex align-items-center gap-2">
+                  <i class="material-symbols-rounded text-secondary" style="font-size:1.1rem">upcoming</i>
+                  Próximas citas
+                </h6>
+                <a href="{% url 'consult' %}" class="text-xs text-secondary text-decoration-none d-flex align-items-center gap-1">
+                  Ver todas <i class="material-symbols-rounded" style="font-size:.85rem">chevron_right</i>
+                </a>
+              </div>
+
+              {% if upcoming %}
+                {% for c in upcoming %}
+                <div class="schedule-item">
+                  <div class="text-center" style="min-width:48px;flex-shrink:0">
+                    <div class="text-xs font-weight-bold" style="color:#344767">{{ c.date|date:"d" }}</div>
+                    <div class="text-xs text-secondary" style="text-transform:uppercase;letter-spacing:.04em">{{ c.date|date:"M" }}</div>
+                  </div>
+                  <div class="avatar-circle" style="background:{{ c.patient.color|default:'#1A73E8' }}">
+                    {{ c.patient.first_name|slice:":1" }}{{ c.patient.last_name|slice:":1" }}
+                  </div>
+                  <div class="flex-grow-1 min-w-0">
+                    <div class="font-weight-bold text-sm text-truncate" style="color:#344767">
+                      {{ c.patient.first_name }} {{ c.patient.last_name }}
+                    </div>
+                    <div class="text-xs text-secondary">{{ c.time|time:"H:i" }} · {{ c.duration }} min</div>
+                  </div>
+                  <a href="{% url 'start_session' c.id %}" class="btn btn-sm bg-gradient-dark mb-0" style="white-space:nowrap;font-size:.72rem">
+                    Iniciar
+                  </a>
+                </div>
+                {% endfor %}
+              {% else %}
+                <div class="text-center py-3">
+                  <i class="material-symbols-rounded d-block mb-2" style="font-size:2.2rem;color:#d1d5db">event_available</i>
+                  <p class="text-sm text-secondary mb-0">Sin próximas citas pendientes</p>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bottom row: Chart + Recent Patients -->
+  <div class="row g-4">
+
+    <!-- Weekly Activity Chart -->
+    <div class="col-12 col-lg-7">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <h6 class="font-weight-bolder mb-0 d-flex align-items-center gap-2">
+            <i class="material-symbols-rounded text-secondary" style="font-size:1.1rem">bar_chart</i>
+            Citas últimos 7 días
+          </h6>
+          <p class="text-xs text-secondary mb-3">Consultas registradas por día</p>
+          <div style="height:180px">
+            <canvas id="chartWeek"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Patients -->
+    <div class="col-12 col-lg-5">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <h6 class="font-weight-bolder mb-0 d-flex align-items-center gap-2">
+              <i class="material-symbols-rounded text-secondary" style="font-size:1.1rem">person_search</i>
+              Pacientes recientes
+            </h6>
+            <a href="{% url 'patients' %}" class="text-xs text-secondary text-decoration-none d-flex align-items-center gap-1">
+              Ver todos <i class="material-symbols-rounded" style="font-size:.85rem">chevron_right</i>
+            </a>
+          </div>
+
+          {% if recent_patients %}
+            {% for p in recent_patients %}
+            <div class="patient-row">
+              <div class="avatar-circle" style="background:{{ p.color|default:'#1A73E8' }}">
+                {{ p.first_name|slice:":1" }}{{ p.last_name|slice:":1" }}
+              </div>
+              <div class="flex-grow-1 min-w-0">
+                <div class="font-weight-bold text-sm text-truncate" style="color:#344767">
+                  {{ p.first_name }} {{ p.last_name }}
+                </div>
+                {% if p.professional %}
+                  <div class="text-xs text-secondary text-truncate">{{ p.professional.first_name }} {{ p.professional.last_name }}</div>
+                {% elif p.email %}
+                  <div class="text-xs text-secondary text-truncate">{{ p.email }}</div>
+                {% endif %}
+              </div>
+              <a href="{% url 'edit_patient' p.id %}" class="btn btn-sm btn-light mb-0 py-1 px-2">
+                <i class="material-symbols-rounded" style="font-size:.85rem">edit</i>
+              </a>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="text-center py-3">
+              <i class="material-symbols-rounded d-block mb-2" style="font-size:2.2rem;color:#d1d5db">person_off</i>
+              <p class="text-sm text-secondary mb-0">Sin pacientes registrados</p>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script src="{% static 'assets/js/plugins/chartjs.min.js' %}"></script>
+<script>
+(function () {
+  var labels = {{ day_labels_json }};
+  var counts = {{ day_counts_json }};
+
+  var ctx = document.getElementById('chartWeek');
+  if (!ctx) return;
+
+  new Chart(ctx.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Citas',
+        data: counts,
+        backgroundColor: 'rgba(26,115,232,0.15)',
+        borderColor: '#1A73E8',
+        borderWidth: 2,
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) { return ' ' + ctx.parsed.y + ' cita' + (ctx.parsed.y !== 1 ? 's' : ''); }
           }
-        },
-        interaction: {
-          intersect: false,
-          mode: 'index',
-        },
-        scales: {
-          y: {
-            grid: {
-              drawBorder: false,
-              display: true,
-              drawOnChartArea: true,
-              drawTicks: false,
-              borderDash: [5, 5],
-              color: '#e5e5e5'
-            },
-            ticks: {
-              suggestedMin: 0,
-              suggestedMax: 500,
-              beginAtZero: true,
-              padding: 10,
-              font: {
-                size: 14,
-                lineHeight: 2
-              },
-              color: "#737373"
-            },
-          },
-          x: {
-            grid: {
-              drawBorder: false,
-              display: false,
-              drawOnChartArea: false,
-              drawTicks: false,
-              borderDash: [5, 5]
-            },
-            ticks: {
-              display: true,
-              color: '#737373',
-              padding: 10,
-              font: {
-                size: 14,
-                lineHeight: 2
-              },
-            }
-          },
-        },
+        }
       },
-    });
-
-
-    var ctx2 = document.getElementById("chart-line").getContext("2d");
-
-    new Chart(ctx2, {
-      type: "line",
-      data: {
-        labels: ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"],
-        datasets: [{
-          label: "Sales",
-          tension: 0,
-          borderWidth: 2,
-          pointRadius: 3,
-          pointBackgroundColor: "#43A047",
-          pointBorderColor: "transparent",
-          borderColor: "#43A047",
-          backgroundColor: "transparent",
-          fill: true,
-          data: [120, 230, 130, 440, 250, 360, 270, 180, 90, 300, 310, 220],
-          maxBarThickness: 6
-
-        }],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            stepSize: 1,
+            color: '#7b809a',
+            font: { size: 11 },
+            padding: 8,
           },
-          tooltip: {
-            callbacks: {
-              title: function(context) {
-                const fullMonths = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-                return fullMonths[context[0].dataIndex];
-              }
-            }
-          }
+          grid: { color: '#f0f0f0', drawBorder: false }
         },
-        interaction: {
-          intersect: false,
-          mode: 'index',
-        },
-        scales: {
-          y: {
-            grid: {
-              drawBorder: false,
-              display: true,
-              drawOnChartArea: true,
-              drawTicks: false,
-              borderDash: [4, 4],
-              color: '#e5e5e5'
-            },
-            ticks: {
-              display: true,
-              color: '#737373',
-              padding: 10,
-              font: {
-                size: 12,
-                lineHeight: 2
-              },
-            }
-          },
-          x: {
-            grid: {
-              drawBorder: false,
-              display: false,
-              drawOnChartArea: false,
-              drawTicks: false,
-              borderDash: [5, 5]
-            },
-            ticks: {
-              display: true,
-              color: '#737373',
-              padding: 10,
-              font: {
-                size: 12,
-                lineHeight: 2
-              },
-            }
-          },
-        },
-      },
-    });
-
-    var ctx3 = document.getElementById("chart-line-tasks").getContext("2d");
-
-    new Chart(ctx3, {
-      type: "line",
-      data: {
-        labels: ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
-        datasets: [{
-          label: "Tasks",
-          tension: 0,
-          borderWidth: 2,
-          pointRadius: 3,
-          pointBackgroundColor: "#43A047",
-          pointBorderColor: "transparent",
-          borderColor: "#43A047",
-          backgroundColor: "transparent",
-          fill: true,
-          data: [50, 40, 300, 220, 500, 250, 400, 230, 500],
-          maxBarThickness: 6
-
-        }],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: false,
-          }
-        },
-        interaction: {
-          intersect: false,
-          mode: 'index',
-        },
-        scales: {
-          y: {
-            grid: {
-              drawBorder: false,
-              display: true,
-              drawOnChartArea: true,
-              drawTicks: false,
-              borderDash: [4, 4],
-              color: '#e5e5e5'
-            },
-            ticks: {
-              display: true,
-              padding: 10,
-              color: '#737373',
-              font: {
-                size: 14,
-                lineHeight: 2
-              },
-            }
-          },
-          x: {
-            grid: {
-              drawBorder: false,
-              display: false,
-              drawOnChartArea: false,
-              drawTicks: false,
-              borderDash: [4, 4]
-            },
-            ticks: {
-              display: true,
-              color: '#737373',
-              padding: 10,
-              font: {
-                size: 14,
-                lineHeight: 2
-              },
-            }
-          },
-        },
-      },
-    });
-  </script>
-  
+        x: {
+          ticks: { color: '#7b809a', font: { size: 11 }, padding: 6 },
+          grid: { display: false, drawBorder: false }
+        }
+      }
+    }
+  });
+}());
+</script>
 {% endblock extra_js %}

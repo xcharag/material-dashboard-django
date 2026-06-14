@@ -1,250 +1,778 @@
 {% extends "layouts/base.html" %}
-{% block title %} Calendario Consultorios {% endblock %}
+{% load static %}
+{% block title %} Calendario {% endblock %}
+
+{% block extrastyle %}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="{% static 'css/custom-combo.css' %}">
+<style>
+  /* Filter card inputs */
+  .filter-card .form-select,
+  .filter-card .form-control {
+    font-size: .82rem; border-radius: .5rem;
+    border: 1px solid #e0e0e0; background: #f8f9fa;
+    padding: .45rem .65rem; color: #344767;
+  }
+  .filter-card .form-select:focus,
+  .filter-card .form-control:focus {
+    background: #fff; border-color: #344767;
+    box-shadow: 0 0 0 2px rgba(52,71,103,.12);
+  }
+
+  /* Offcanvas */
+  .offcanvas { width: 480px !important; }
+  @media(max-width:576px){ .offcanvas { width: 100% !important; } }
+  .offcanvas-body .field-label {
+    display: block; font-size: .7rem; font-weight: 700;
+    letter-spacing: .06em; text-transform: uppercase;
+    color: #7b809a; margin-bottom: .35rem;
+  }
+  .offcanvas-body .field-label .req { color: #f5365c; margin-left: .2rem; font-size: .85rem; }
+  .offcanvas-body .form-control,
+  .offcanvas-body .form-select {
+    font-size: .875rem; color: #344767; background-color: #f8f9fa;
+    border: 1px solid #e0e0e0; border-radius: .5rem; padding: .55rem .75rem;
+  }
+  .offcanvas-body .form-control:focus,
+  .offcanvas-body .form-select:focus {
+    background-color: #fff; border-color: #344767;
+    box-shadow: 0 0 0 2px rgba(52,71,103,.12);
+  }
+
+  /* FullCalendar overrides */
+  #calendar { min-height: 680px; }
+  .fc .fc-toolbar-title { font-size: 1rem; font-weight: 700; color: #344767; }
+  .fc .fc-button {
+    background: #f8f9fa !important; border: 1px solid #e0e0e0 !important;
+    color: #344767 !important; font-size: .78rem !important;
+    border-radius: .5rem !important; padding: .3rem .7rem !important;
+    box-shadow: none !important;
+  }
+  .fc .fc-button:hover { background: #e9ecef !important; }
+  .fc .fc-button-active,
+  .fc .fc-button-primary:not(:disabled).fc-button-active {
+    background: #344767 !important; border-color: #344767 !important; color: #fff !important;
+  }
+  .fc .fc-col-header-cell-cushion {
+    font-size: .75rem; font-weight: 700; color: #7b809a;
+    text-transform: uppercase; letter-spacing: .04em; text-decoration: none;
+  }
+  .fc .fc-event { border-radius: .4rem !important; border: none !important; font-size: .75rem; padding: 1px 4px; cursor: pointer; }
+  .fc .fc-timegrid-slot { height: 2rem; }
+  .fc .fc-daygrid-day-number { font-size: .78rem; color: #344767; text-decoration: none; }
+  .fc .fc-day-today { background: rgba(26,115,232,.04) !important; }
+  .fc .fc-timegrid-now-indicator-line { border-color: #f5365c; }
+  .fc .fc-timegrid-now-indicator-arrow { border-top-color: #f5365c; border-bottom-color: #f5365c; }
+  /* Highlight selectable cells on hover */
+  .fc .fc-highlight { background: rgba(26,115,232,.08) !important; }
+  /* Non-working hours: subtle diagonal stripe so the doctor sees "unavailable" clearly */
+  .fc-non-business {
+    background: repeating-linear-gradient(
+      -45deg,
+      rgba(0,0,0,.022),
+      rgba(0,0,0,.022) 3px,
+      rgba(200,205,215,.06) 3px,
+      rgba(200,205,215,.06) 10px
+    ) !important;
+  }
+
+  /* Consultation detail modal */
+  .cm-detail-row {
+    display: flex; align-items: flex-start; gap: .6rem;
+    padding: .55rem 0; border-bottom: 1px solid #f0f0f0; font-size: .82rem;
+  }
+  .cm-detail-row:last-child { border-bottom: none; }
+  .cm-detail-row .cm-icon { color: #7b809a; flex-shrink: 0; margin-top: 1px; font-size: 1rem; }
+  .cm-detail-row .cm-label { color: #7b809a; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+  .cm-detail-row .cm-value { color: #344767; font-weight: 500; }
+  .modal-content { border: none; border-radius: 1rem; overflow: hidden; }
+  .modal-header { padding: 1.1rem 1.25rem .75rem; border-bottom: 1px solid #f0f0f0; }
+  .modal-body { padding: 1rem 1.25rem; }
+  .modal-footer { padding: .75rem 1.25rem; border-top: 1px solid #f0f0f0; }
+  .action-section-label {
+    font-size: .7rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: #7b809a; margin-bottom: .5rem;
+  }
+  .action-radio-card {
+    border: 1.5px solid #e0e0e0; border-radius: .6rem;
+    padding: .6rem .9rem; cursor: pointer; transition: border-color .15s, background .15s;
+    display: flex; align-items: center; gap: .6rem; font-size: .82rem; font-weight: 500;
+  }
+  .action-radio-card:hover { border-color: #344767; background: #f8f9fa; }
+  .action-radio-card input[type=radio] { accent-color: #344767; }
+  .reschedule-fields .form-label { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #7b809a; }
+  .reschedule-fields .form-control,
+  .reschedule-fields .form-select {
+    font-size: .82rem; color: #344767; background: #f8f9fa;
+    border: 1px solid #e0e0e0; border-radius: .5rem; padding: .45rem .65rem;
+  }
+  .reschedule-fields .form-control:focus,
+  .reschedule-fields .form-select:focus {
+    background: #fff; border-color: #344767;
+    box-shadow: 0 0 0 2px rgba(52,71,103,.12);
+  }
+</style>
+{% endblock extrastyle %}
+
 {% block content %}
 <div class="container-fluid py-4">
-  <div class="row">
-    <div class="col-12">
-      <div class="card my-4">
-        <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
-          <div class="bg-gradient-success shadow-success border-radius-lg pt-4 pb-3 d-flex justify-content-between align-items-center">
-            <h6 class="text-white text-capitalize ps-3 mb-0">Calendario</h6>
-            <a href="{% url 'consult' %}" class="btn btn-sm btn-outline-light">Nueva Consulta</a>
-          </div>
-        </div>
-        <div class="card-body px-4 pb-2">
-          <form class="row g-2 mb-3" id="calendarFilters">
-            <div class="col-md-6 col-lg-4">
-              <label class="form-label text-xs">Consultorio</label>
-              <select class="form-select" name="consultorio">
-                <option value="">Todos</option>
-                {% for c in consultorios %}
-                  <option value="{{ c.id }}" {% if selected_consultorio_id == c.id %}selected{% endif %}>{{ c.name }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-md-3 col-lg-2 d-flex align-items-end">
-              <button class="btn btn-success w-100" type="submit">Aplicar</button>
-            </div>
-          </form>
-          <div id="calendar"></div>
-        </div>
-      </div>
+
+  <!-- Page Header -->
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-4 gap-3">
+    <div>
+      <h4 class="mb-0 font-weight-bolder">Calendario</h4>
+      <p class="text-sm text-secondary mb-0">Visualiza y gestiona las citas programadas</p>
+    </div>
+    <div class="d-flex gap-2">
+      <!-- Opens offcanvas instead of navigating away -->
+      <button class="btn bg-gradient-dark btn-sm d-flex align-items-center gap-1"
+              data-bs-toggle="offcanvas" data-bs-target="#addCitaCanvas">
+        <i class="material-symbols-rounded" style="font-size:1rem">event_available</i>
+        Nueva Cita
+      </button>
+      <a href="{% url 'config_consultorios' %}" class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1">
+        <i class="material-symbols-rounded" style="font-size:1rem">settings</i>
+        Consultorios
+      </a>
     </div>
   </div>
-</div>
-{% endblock content %}
 
-{% block extra_js %}
-<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet" />
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
-<style>
-  #calendar { min-height: 700px; }
-  .fc-event { cursor: pointer; font-size:11px; }
-  .fc-toolbar-title { font-size: 1.05rem; }
-  .color-picker-pop { position:absolute; background:#fff; border:1px solid #ccc; padding:6px; border-radius:6px; z-index:9999; box-shadow:0 2px 8px rgba(0,0,0,.15); }
-</style>
-<script>
-  (function(){
-    function getCookie(name) {
-      const value = `; ${document.cookie}`;
-      const parts = value.split(`; ${name}=`);
-      if (parts.length === 2) return parts.pop().split(';').shift();
-    }
-    function showToast(msg,type){
-      var container=document.getElementById('toastContainer');
-      if(!container){alert(msg);return;};
-      var w=document.createElement('div');
-      w.className='toast show mb-2';
-      w.innerHTML='<div class="toast-header"><strong class="me-auto text-'+(type||'success')+'">'+(type||'Info')+'</strong><button type="button" class="btn-close" data-bs-dismiss="toast"></button></div><div class="toast-body">'+msg+'</div>';
-      container.prepend(w);
-      try{ new bootstrap.Toast(w,{delay:4000}).show(); }catch(e){}
-    }
-    document.addEventListener('DOMContentLoaded', function() {
-      // Modal element
-      var modalEl = document.getElementById('consultModal');
-      var bsModal = modalEl ? new bootstrap.Modal(modalEl) : null;
-      var calEl = document.getElementById('calendar');
-      var params = new URLSearchParams(window.location.search);
-      var consultorio = params.get('consultorio') || '';
-      var initialMode = 'timeGridWeek';
-      var calendar = new FullCalendar.Calendar(calEl, {
-        initialView: initialMode,
-        slotDuration: '00:30:00',
-        allDaySlot: false,
-        locale: 'es',
-        buttonText: { today:'Hoy', dayGridMonth:'Mes', timeGridWeek:'Semana', timeGridDay:'Día' },
-        height: 'auto',
-        selectable: true,
-        editable: true,
-        nowIndicator: true,
-        headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
-        events: function(fetchInfo, success, failure){
-          var url = '{% url "calendar_events_api" %}?start='+fetchInfo.startStr+'&end='+fetchInfo.endStr+(consultorio?('&consultorio='+consultorio):'');
-          fetch(url,{credentials:'same-origin'}).then(r=>r.json()).then(data=>success(data)).catch(err=>failure(err));
-        },
-        eventDrop: function(info){ updateEventTime(info); },
-        eventResize: function(info){ updateEventTime(info); },
-        eventClick: function(info){
-          var ev = info.event;
-          // Populate modal fields
-          if(!bsModal) return;
-          modalEl.querySelector('#cm-id').value = ev.id;
-          modalEl.querySelector('#cm-patient-id').value = ev.extendedProps.patientId || '';
-          modalEl.querySelector('#cm-prof-id').value = ev.extendedProps.professionalId || '';
-          modalEl.querySelector('#cm-duration').value = ev.extendedProps.duration || 60;
-          modalEl.querySelector('#cm-title').textContent = ev.extendedProps.patientName || ev.title || 'Consulta';
-          modalEl.querySelector('#cm-status').textContent = ev.extendedProps.statusDisplay || ev.extendedProps.status || '';
-          modalEl.querySelector('#cm-consultorio').textContent = ev.extendedProps.consultorio || '';
-          modalEl.querySelector('#cm-professional').textContent = ev.extendedProps.professionalName || '';
-          modalEl.querySelector('#cm-datetime').textContent = ev.start.toLocaleString();
-          modalEl.querySelector('#cm-duration-view').textContent = (ev.extendedProps.duration||60)+' min';
-          var colorInput = modalEl.querySelector('#cm-color');
-          if(colorInput){
-            colorInput.value = ev.backgroundColor || '#64B5F6';
-            colorInput.onchange = function(){
-              var hex = colorInput.value;
-              var pid = ev.extendedProps.patientId;
-              if(!pid){ showToast('No hay paciente asociado','warning'); return; }
-              fetch('{% url "patient_color_update_api" 0 %}'.replace('/0/','/'+pid+'/'),{
-                method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':getCookie('csrftoken'),'Content-Type':'application/x-www-form-urlencoded'},
-                body: 'color='+encodeURIComponent(hex)
-              }).then(r=>r.json()).then(data=>{
-                if(data.ok){ ev.setProp('backgroundColor',hex); ev.setProp('borderColor',hex); showToast('Color actualizado','success'); }
-                else showToast(data.message||'Error','danger');
-              }).catch(()=>{showToast('Error color','danger');});
-            };
-          }
-          // Reset cancel/reschedule section
-          modalEl.querySelector('#cm-action-cancel').checked = true;
-          modalEl.querySelector('#cm-resched-section').classList.add('d-none');
-          var actCancel = modalEl.querySelector('#cm-action-cancel');
-          var actRes = modalEl.querySelector('#cm-action-resched');
-          var resSec = modalEl.querySelector('#cm-resched-section');
-          function toggleRes(){ resSec.classList.toggle('d-none', !actRes.checked); }
-          actCancel.onchange = toggleRes; actRes.onchange = toggleRes;
-          // Load slots on date change
-          var resDate = modalEl.querySelector('#cm-resched-date');
-          var resTime = modalEl.querySelector('#cm-resched-time');
-          resDate.value = '';
-          resTime.innerHTML = '<option value="">--</option>';
-          resDate.onchange = function(){
-            var profId = ev.extendedProps.professionalId; if(!profId){ return; }
-            var dur = ev.extendedProps.duration || 60;
-            if(!resDate.value){ resTime.innerHTML = '<option value="">--</option>'; return; }
-            var url = '{% url "available_slots_api" %}?date='+encodeURIComponent(resDate.value)+'&duration='+dur+'&professional_id='+profId;
-            fetch(url,{credentials:'same-origin'}).then(r=>r.json()).then(d=>{
-              var slots = d.slots||[]; var html='';
-              if(slots.length===0){ html='<option value="">Sin horarios</option>'; }
-              else { html = slots.map(s=>'<option value="'+s+'">'+s+'</option>').join(''); }
-              resTime.innerHTML = html;
-            }).catch(()=>{ resTime.innerHTML = '<option value="">Error</option>'; });
-          };
-          // Confirm action
-          modalEl.querySelector('#cm-confirm').onclick = function(){
-            var mode = actRes.checked ? 'reschedule' : 'cancel';
-            if(mode==='cancel'){
-              fetch('{% url "consultation_cancel_api" 0 %}'.replace('/0/','/'+ev.id+'/'),{
-                method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':getCookie('csrftoken'),'Content-Type':'application/x-www-form-urlencoded'},
-                body:'mode=cancel'
-              }).then(r=>r.json()).then(data=>{
-                if(data.ok){
-                  bsModal.hide();
-                  ev.remove();
-                  showToast('Consulta cancelada','success');
-                } else { showToast(data.message||'Error','danger'); }
-              }).catch(()=>showToast('Error al cancelar','danger'));
-            } else {
-              var d = resDate.value; var t = resTime.value;
-              if(!d || !t){ showToast('Seleccione fecha y hora','warning'); return; }
-              fetch('{% url "consultation_cancel_api" 0 %}'.replace('/0/','/'+ev.id+'/'),{
-                method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':getCookie('csrftoken'),'Content-Type':'application/x-www-form-urlencoded'},
-                body:'mode=reschedule&date='+encodeURIComponent(d)+'&time='+encodeURIComponent(t)
-              }).then(r=>r.json()).then(data=>{
-                if(data.ok){
-                  // Update event with new time
-                  var startIso = d+'T'+t+':00';
-                  var dur = ev.extendedProps.duration||60;
-                  var start = new Date(startIso);
-                  var end = new Date(start.getTime() + dur*60000);
-                  ev.setStart(start); ev.setEnd(end);
-                  bsModal.hide();
-                  showToast('Consulta reprogramada','success');
-                } else { showToast(data.message||'Error','danger'); }
-              }).catch(()=>showToast('Error al reprogramar','danger'));
-            }
-          };
-          bsModal.show();
-        }
-      });
-      calendar.render();
-      function updateEventTime(info){
-        var ev = info.event;
-        fetch('{% url "consultation_time_update_api" 0 %}'.replace('/0/','/'+ev.id+'/'),{
-          method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':getCookie('csrftoken'),'Content-Type':'application/x-www-form-urlencoded'},
-          body:'start='+encodeURIComponent(ev.start.toISOString())+'&end='+encodeURIComponent(ev.end.toISOString())
-        }).then(r=>r.json()).then(data=>{ if(!data.ok){ showToast(data.message||'Error','danger'); info.revert(); } else { showToast('Actualizado','success'); } })
-          .catch(()=>{ showToast('Error actualización','danger'); info.revert(); });
-      }
-      document.getElementById('calendarFilters').addEventListener('submit', function(e){
-        e.preventDefault();
-        var form = e.target;
-        var formParams = new URLSearchParams(new FormData(form));
-        var newUrl = window.location.pathname+'?'+formParams.toString();
-        window.history.replaceState({},'',newUrl);
-        consultorio = formParams.get('consultorio')||'';
-        calendar.refetchEvents();
-      });
-    });
-  })();
-</script>
-<!-- Modal for consultation details and cancel/reschedule -->
+  <!-- Filter Card -->
+  <div class="card border-0 shadow-sm mb-4 filter-card">
+    <div class="card-body p-3">
+      <form class="row g-2 align-items-end" id="calendarFilters">
+        <div class="col-12 col-sm-6 col-md-4">
+          <label class="form-label text-xs text-secondary mb-1">Consultorio</label>
+          <select class="form-select" name="consultorio">
+            <option value="">Todos los consultorios</option>
+            {% for c in all_active_consultorios %}
+            <option value="{{ c.id }}" {% if selected_consultorio_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-auto d-flex gap-2">
+          <button type="submit" class="btn bg-gradient-dark btn-sm d-flex align-items-center gap-1">
+            <i class="material-symbols-rounded" style="font-size:.9rem">filter_alt</i>Filtrar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if not is_admin %}
+  <!-- Schedule legend (professional only) -->
+  <div class="d-flex align-items-center gap-2 mb-3" style="font-size:.75rem;color:#7b809a">
+    <span style="display:inline-block;width:18px;height:14px;border-radius:3px;background:repeating-linear-gradient(-45deg,rgba(0,0,0,.06),rgba(0,0,0,.06) 3px,rgba(200,205,215,.12) 3px,rgba(200,205,215,.12) 10px);flex-shrink:0"></span>
+    Fuera de tu horario de atención
+    <span style="display:inline-block;width:18px;height:14px;border-radius:3px;background:rgba(26,115,232,.08);flex-shrink:0;margin-left:.5rem"></span>
+    Disponible
+  </div>
+  {% endif %}
+
+  <!-- Calendar Card -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-3 p-md-4">
+      <div id="calendar"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════
+     Offcanvas: Nueva Cita
+══════════════════════════════════════ -->
+<div class="offcanvas offcanvas-end shadow-lg" tabindex="-1" id="addCitaCanvas">
+  <div class="offcanvas-header border-bottom">
+    <div class="d-flex align-items-center gap-2">
+      <div style="width:36px;height:36px;border-radius:50%;background:#344767;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="material-symbols-rounded text-white" style="font-size:1rem">event_available</i>
+      </div>
+      <h6 class="mb-0">Nueva Cita</h6>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+  </div>
+  <div class="offcanvas-body">
+    <form method="post" id="citaForm">
+      {% csrf_token %}
+
+      <p class="text-xs text-uppercase text-secondary font-weight-bolder mb-3 mt-1">Paciente</p>
+
+      <div class="mb-3">
+        <label class="field-label">Paciente <span class="req">*</span></label>
+        <div class="custom-combo" id="patientCombo">
+          <div class="custom-combo-trigger" id="patientTrigger" tabindex="0"
+               role="combobox" aria-expanded="false" aria-haspopup="listbox">
+            <div id="patientDisplay"><span class="placeholder-text">Seleccionar paciente</span></div>
+            <i class="material-symbols-rounded combo-arrow">expand_more</i>
+          </div>
+          <input type="hidden" name="patient" id="patientHidden" required>
+          <div class="custom-combo-dropdown" id="patientDropdown">
+            <div class="combo-search-wrap">
+              <i class="material-symbols-rounded">search</i>
+              <input type="text" class="combo-search-input" id="patientSearch" placeholder="Buscar paciente...">
+            </div>
+            <div class="combo-options" id="patientOptions">
+              {% for p in patients %}
+              <div class="combo-option"
+                   data-value="{{ p.id }}"
+                   data-name="{{ p.first_name }} {{ p.last_name }}"
+                   data-role="Paciente"
+                   data-initials="{{ p.first_name|slice:':1' }}{{ p.last_name|slice:':1' }}"
+                   data-search="{{ p.first_name|lower }} {{ p.last_name|lower }}">
+                <div class="combo-avatar" style="background:{{ p.color|default:'#2196f3' }}">{{ p.first_name|slice:":1" }}{{ p.last_name|slice:":1" }}</div>
+                <span class="combo-name">{{ p.first_name }} {{ p.last_name }}</span>
+                <span class="combo-role">Paciente</span>
+              </div>
+              {% endfor %}
+            </div>
+            <div class="combo-no-results" id="patientNoResults">Sin resultados</div>
+          </div>
+        </div>
+      </div>
+
+      {% if is_admin %}
+      <div class="mb-3">
+        <label class="field-label">Profesional <span class="req">*</span></label>
+        <div class="custom-combo" id="profCombo">
+          <div class="custom-combo-trigger" id="profTrigger" tabindex="0"
+               role="combobox" aria-expanded="false" aria-haspopup="listbox">
+            <div id="profDisplay"><span class="placeholder-text">Seleccionar profesional</span></div>
+            <i class="material-symbols-rounded combo-arrow">expand_more</i>
+          </div>
+          <input type="hidden" name="professional" id="profHidden">
+          <div class="custom-combo-dropdown" id="profDropdown">
+            <div class="combo-search-wrap">
+              <i class="material-symbols-rounded">search</i>
+              <input type="text" class="combo-search-input" id="profSearch" placeholder="Buscar profesional...">
+            </div>
+            <div class="combo-options" id="profOptions">
+              {% for prof in all_professionals %}
+              <div class="combo-option"
+                   data-value="{{ prof.id }}"
+                   data-name="{{ prof.first_name }} {{ prof.last_name }}"
+                   data-role="{{ prof.get_role_display }}"
+                   data-initials="{{ prof.first_name|slice:':1' }}{{ prof.last_name|slice:':1' }}"
+                   data-search="{{ prof.first_name|lower }} {{ prof.last_name|lower }}">
+                <div class="combo-avatar" style="background:#1a73e8">
+                  {{ prof.first_name|slice:":1" }}{{ prof.last_name|slice:":1" }}
+                </div>
+                <span class="combo-name">{{ prof.first_name }} {{ prof.last_name }}</span>
+                <span class="combo-role">{{ prof.get_role_display }}</span>
+              </div>
+              {% endfor %}
+            </div>
+            <div class="combo-no-results" id="profNoResults">Sin resultados</div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <p class="text-xs text-uppercase text-secondary font-weight-bolder mb-3 mt-4">Programación</p>
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="field-label">Consultorio <span class="req">*</span></label>
+          <select name="consultory" id="citaConsultorio" class="form-select" required>
+            <option value="">Seleccionar consultorio</option>
+            {% for c in all_active_consultorios %}
+            <option value="{{ c.id }}">{{ c.name }}{% if c.address %} – {{ c.address }}{% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="field-label">Fecha <span class="req">*</span></label>
+          <input type="date" name="date" id="citaDate" class="form-control" required min="{{ today|date:'Y-m-d' }}">
+        </div>
+        <div class="col-md-6">
+          <label class="field-label">Duración</label>
+          <select name="duration" id="citaDuration" class="form-select">
+            <option value="30">30 min</option>
+            <option value="60" selected>1 hora</option>
+            <option value="90">1h 30min</option>
+            <option value="120">2 horas</option>
+            <option value="150">2h 30min</option>
+            <option value="180">3 horas</option>
+            <option value="210">3h 30min</option>
+            <option value="240">4 horas</option>
+          </select>
+        </div>
+        <div class="col-12">
+          <label class="field-label">Hora <span class="req">*</span></label>
+          <select name="time" id="citaTime" class="form-select" required>
+            <option value="">Seleccione una fecha primero</option>
+          </select>
+        </div>
+      </div>
+
+      <p class="text-xs text-uppercase text-secondary font-weight-bolder mb-3 mt-4">Notas</p>
+      <div class="mb-3">
+        <textarea name="notes" id="citaNotes" class="form-control" rows="3"
+                  placeholder="Observaciones para la cita..."></textarea>
+      </div>
+
+      <div class="d-grid mt-4">
+        <button type="submit" id="citaSubmitBtn" class="btn bg-gradient-dark">
+          <i class="material-symbols-rounded me-1" style="font-size:1rem">save</i>
+          Guardar Cita
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     Consultation Detail Modal
+══════════════════════════════════════ -->
 <div class="modal fade" id="consultModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-scrollable">
-    <div class="modal-content">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content shadow">
+
       <div class="modal-header">
-        <h6 class="modal-title" id="cm-title">Consulta</h6>
+        <div class="d-flex align-items-center gap-3">
+          <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(195deg,#1A73E8,#1557B0);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <i class="material-symbols-rounded text-white" style="font-size:1.1rem">event</i>
+          </div>
+          <div>
+            <h6 class="mb-0 font-weight-bolder" id="cm-title">Consulta</h6>
+            <span class="badge bg-gradient-secondary text-xs" id="cm-status"></span>
+          </div>
+        </div>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
+
       <div class="modal-body">
         <input type="hidden" id="cm-id" />
         <input type="hidden" id="cm-patient-id" />
         <input type="hidden" id="cm-prof-id" />
         <input type="hidden" id="cm-duration" />
-        <div class="mb-2"><span class="text-secondary text-xxs">Estado:</span> <span class="badge bg-gradient-secondary" id="cm-status"></span></div>
-        <div class="mb-2"><span class="text-secondary text-xxs">Fecha y hora:</span> <span id="cm-datetime"></span></div>
-        <div class="mb-2"><span class="text-secondary text-xxs">Duración:</span> <span id="cm-duration-view"></span></div>
-        <div class="mb-2"><span class="text-secondary text-xxs">Consultorio:</span> <span id="cm-consultorio"></span></div>
-        <div class="mb-3"><span class="text-secondary text-xxs">Profesional:</span> <span id="cm-professional"></span></div>
-        <div class="mb-3 d-flex align-items-center gap-2">
-          <label for="cm-color" class="form-label mb-0 text-xs">Color:</label>
-          <input type="color" id="cm-color" class="form-control form-control-color" style="width:60px;">
+
+        <div class="cm-detail-row">
+          <i class="material-symbols-rounded cm-icon">schedule</i>
+          <div>
+            <div class="cm-label">Fecha y hora</div>
+            <div class="cm-value" id="cm-datetime">—</div>
+          </div>
         </div>
-        <hr/>
-        <div class="mb-2 text-sm fw-bold">Cancelar o Reprogramar</div>
-        <div class="form-check">
-          <input class="form-check-input" type="radio" name="cm-action" id="cm-action-cancel" checked>
-          <label class="form-check-label" for="cm-action-cancel">Cancelar</label>
+        <div class="cm-detail-row">
+          <i class="material-symbols-rounded cm-icon">timer</i>
+          <div>
+            <div class="cm-label">Duración</div>
+            <div class="cm-value" id="cm-duration-view">—</div>
+          </div>
         </div>
-        <div class="form-check mb-2">
-          <input class="form-check-input" type="radio" name="cm-action" id="cm-action-resched">
-          <label class="form-check-label" for="cm-action-resched">Reprogramar a otra fecha</label>
+        <div class="cm-detail-row">
+          <i class="material-symbols-rounded cm-icon">door_front</i>
+          <div>
+            <div class="cm-label">Consultorio</div>
+            <div class="cm-value" id="cm-consultorio">—</div>
+          </div>
         </div>
-        <div id="cm-resched-section" class="row g-2 d-none">
+        <div class="cm-detail-row">
+          <i class="material-symbols-rounded cm-icon">stethoscope</i>
+          <div>
+            <div class="cm-label">Profesional</div>
+            <div class="cm-value" id="cm-professional">—</div>
+          </div>
+        </div>
+        <div class="cm-detail-row">
+          <i class="material-symbols-rounded cm-icon">palette</i>
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <div>
+              <div class="cm-label">Color del evento</div>
+              <p class="text-xs text-secondary mb-0" style="margin-top:.1rem">Identifica al paciente en el calendario</p>
+            </div>
+            <input type="color" id="cm-color" class="form-control form-control-color ms-auto"
+                   style="width:44px;height:32px;border-radius:.5rem;border:1px solid #e0e0e0;cursor:pointer">
+          </div>
+        </div>
+
+        <hr class="my-3">
+
+        <p class="action-section-label">Acción</p>
+        <div class="d-flex flex-column gap-2 mb-3">
+          <label class="action-radio-card" style="color:#c62828">
+            <input class="form-check-input me-1" type="radio" name="cm-action" id="cm-action-cancel" checked>
+            <i class="material-symbols-rounded" style="font-size:1rem">cancel</i>
+            Cancelar esta cita
+          </label>
+          <label class="action-radio-card" style="color:#1A73E8">
+            <input class="form-check-input me-1" type="radio" name="cm-action" id="cm-action-resched">
+            <i class="material-symbols-rounded" style="font-size:1rem">event_repeat</i>
+            Reprogramar a otra fecha
+          </label>
+        </div>
+
+        <div id="cm-resched-section" class="row g-2 d-none reschedule-fields">
           <div class="col-6">
-            <label class="form-label text-xs">Fecha</label>
+            <label class="form-label">Fecha</label>
             <input type="date" id="cm-resched-date" class="form-control" />
           </div>
           <div class="col-6">
-            <label class="form-label text-xs">Hora</label>
-            <select id="cm-resched-time" class="form-select"></select>
+            <label class="form-label">Hora</label>
+            <select id="cm-resched-time" class="form-select"><option value="">—</option></select>
           </div>
         </div>
       </div>
+
       <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
-        <button type="button" class="btn btn-danger" id="cm-confirm">Confirmar</button>
+        <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-sm bg-gradient-danger d-flex align-items-center gap-1" id="cm-confirm">
+          <i class="material-symbols-rounded" style="font-size:.9rem">check</i>
+          Confirmar
+        </button>
       </div>
+
     </div>
   </div>
 </div>
+
+{% endblock content %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+<script src="{% static 'js/custom-combo.js' %}"></script>
+<script>
+(function () {
+  /* ── helpers ── */
+  function getCookie(name) {
+    const v = `; ${document.cookie}`, p = v.split(`; ${name}=`);
+    if (p.length === 2) return p.pop().split(';').shift();
+  }
+  function getJSON(url) { return fetch(url, { credentials: 'same-origin' }).then(r => r.json()); }
+  function getHTML(url) { return fetch(url, { credentials: 'same-origin' }).then(r => r.text()); }
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  /* ── slot loader ── */
+  function refreshSlots(preSelectTime) {
+    var sel = document.getElementById('citaTime');
+    var date = document.getElementById('citaDate').value;
+    var duration = document.getElementById('citaDuration').value || '60';
+    var profHidden = document.getElementById('profHidden');
+    var params = new URLSearchParams();
+
+    if (profHidden !== null && !profHidden.value) {
+      sel.innerHTML = '<option value="">Seleccione un profesional primero</option>';
+      return;
+    }
+    if (!date) {
+      sel.innerHTML = '<option value="">Seleccione una fecha primero</option>';
+      return;
+    }
+    params.set('date', date);
+    params.set('duration', duration);
+    if (profHidden && profHidden.value) params.set('professional_id', profHidden.value);
+
+    sel.innerHTML = '<option value="">Cargando horarios…</option>';
+    getJSON('{% url "available_slots_api" %}?' + params.toString()).then(function (data) {
+      sel.innerHTML = '';
+      if (data.slots && data.slots.length) {
+        var def = document.createElement('option');
+        def.value = ''; def.textContent = 'Seleccionar hora';
+        sel.appendChild(def);
+        data.slots.forEach(function (s) {
+          var opt = document.createElement('option');
+          opt.value = s; opt.textContent = s;
+          sel.appendChild(opt);
+        });
+        // Pre-select if a time was requested
+        if (preSelectTime && sel.querySelector('option[value="' + preSelectTime + '"]')) {
+          sel.value = preSelectTime;
+        }
+      } else {
+        sel.innerHTML = '<option value="">Sin horarios disponibles</option>';
+      }
+    }).catch(function () {
+      sel.innerHTML = '<option value="">Error al cargar horarios</option>';
+    });
+  }
+
+  /* ── reset offcanvas form ── */
+  function resetCitaForm() {
+    document.getElementById('citaForm').reset();
+    document.getElementById('patientDisplay').innerHTML = '<span class="placeholder-text">Seleccionar paciente</span>';
+    document.getElementById('patientHidden').value = '';
+    {% if is_admin %}
+    document.getElementById('profDisplay').innerHTML = '<span class="placeholder-text">Seleccionar profesional</span>';
+    document.getElementById('profHidden').value = '';
+    {% endif %}
+    document.getElementById('citaTime').innerHTML = '<option value="">Seleccione una fecha primero</option>';
+  }
+
+  /* ── open offcanvas pre-filled from calendar selection ── */
+  function openCitaOffcanvas(dateStr, timeStr) {
+    // dateStr: 'YYYY-MM-DD', timeStr: 'HH:MM' or null
+    var oc = bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('addCitaCanvas'));
+    var dateInput = document.getElementById('citaDate');
+    dateInput.value = dateStr || '';
+    if (timeStr) {
+      // Load slots and pre-select the clicked time
+      refreshSlots(timeStr);
+    } else {
+      document.getElementById('citaTime').innerHTML = '<option value="">Seleccionar hora</option>';
+    }
+    oc.show();
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+
+    /* ── init patient combo ── */
+    initCombo({
+      combo: 'patientCombo', trigger: 'patientTrigger',
+      dropdown: 'patientDropdown', display: 'patientDisplay',
+      hidden: 'patientHidden', search: 'patientSearch',
+      options: 'patientOptions', noResults: 'patientNoResults'
+    });
+
+    {% if is_admin %}
+    /* ── init professional combo (admin only) ── */
+    initCombo({
+      combo: 'profCombo', trigger: 'profTrigger',
+      dropdown: 'profDropdown', display: 'profDisplay',
+      hidden: 'profHidden', search: 'profSearch',
+      options: 'profOptions', noResults: 'profNoResults'
+    });
+    var profHidden = document.getElementById('profHidden');
+    if (profHidden) profHidden.addEventListener('change', function () { refreshSlots(null); });
+    {% endif %}
+
+    /* ── date / duration change → reload slots ── */
+    document.getElementById('citaDate').addEventListener('change', function () { refreshSlots(null); });
+    document.getElementById('citaDuration').addEventListener('change', function () {
+      if (document.getElementById('citaDate').value) refreshSlots(null);
+    });
+
+    /* ── AJAX form submission ── */
+    document.getElementById('citaForm').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var btn = document.getElementById('citaSubmitBtn');
+      btn.disabled = true;
+      var fd = new FormData(this);
+      fetch('{% url "consult" %}', {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken') },
+        body: fd,
+        credentials: 'same-origin'
+      })
+      .then(function (r) { return r.json().catch(function () { return { ok: false, message: 'Error de servidor' }; }); })
+      .then(function (res) {
+        btn.disabled = false;
+        if (res && res.ok) {
+          showToast(res.message || 'Cita guardada', 'success');
+          var oc = bootstrap.Offcanvas.getInstance(document.getElementById('addCitaCanvas'));
+          if (oc) oc.hide();
+          resetCitaForm();
+          calendar.refetchEvents();
+        } else {
+          showToast((res && res.message) || 'No se pudo guardar la cita', 'danger');
+        }
+      })
+      .catch(function () { btn.disabled = false; showToast('Error de red', 'danger'); });
+    });
+
+    /* ── FullCalendar ── */
+    var calEl = document.getElementById('calendar');
+    var params = new URLSearchParams(window.location.search);
+    var consultorioFilter = params.get('consultorio') || '';
+
+    // Schedule data from server (professional only; 'false' / '{}' for admin)
+    var BUSINESS_HOURS  = {{ business_hours_json|safe }};
+    var EXCEPTIONS      = {{ exceptions_json|safe }};
+
+    function toMin(hhmm) {
+      var p = hhmm.split(':'); return +p[0] * 60 + +p[1];
+    }
+
+    var calendar = new FullCalendar.Calendar(calEl, {
+      initialView: 'timeGridWeek',
+      slotDuration: '00:30:00',
+      slotMinTime: '{{ slot_min_time }}',
+      slotMaxTime: '{{ slot_max_time }}',
+      allDaySlot: false,
+      locale: 'es',
+      buttonText: { today: 'Hoy', dayGridMonth: 'Mes', timeGridWeek: 'Semana', timeGridDay: 'Día' },
+      height: 'auto',
+      selectable: true,
+      editable: true,
+      nowIndicator: true,
+      headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
+
+      // Shade cells outside the doctor's working hours (no-op for admin: BUSINESS_HOURS===false)
+      businessHours: BUSINESS_HOURS,
+      {% if not is_admin %}
+      // Prevent selecting cells that fall outside working hours
+      selectConstraint: 'businessHours',
+      {% endif %}
+
+      // Also block exception dates (closed days or specific blocked intervals)
+      selectAllow: function (info) {
+        var dateStr = info.startStr.slice(0, 10);
+        var exc = EXCEPTIONS[dateStr];
+        if (!exc) return true;
+        if (exc.is_closed) return false;
+        // Exception defines a BLOCKED interval inside the day (not a new window)
+        if (exc.start && exc.end) {
+          var ss = info.start.getHours() * 60 + info.start.getMinutes();
+          var se = info.end.getHours()   * 60 + info.end.getMinutes();
+          if (ss < toMin(exc.end) && toMin(exc.start) < se) return false;
+        }
+        return true;
+      },
+
+      events: function (fetchInfo, success, failure) {
+        var url = '{% url "calendar_events_api" %}?start=' + fetchInfo.startStr + '&end=' + fetchInfo.endStr
+                  + (consultorioFilter ? '&consultorio=' + consultorioFilter : '');
+        fetch(url, { credentials: 'same-origin' })
+          .then(r => r.json()).then(data => success(data)).catch(err => failure(err));
+      },
+
+      /* ── Click on empty cell → open offcanvas pre-filled ── */
+      select: function (info) {
+        var dateStr = info.startStr.slice(0, 10); // 'YYYY-MM-DD'
+        var timeStr = null;
+        // In timeGrid views info.start has a meaningful time; in dayGrid it's midnight
+        if (info.start.getHours() !== 0 || info.start.getMinutes() !== 0) {
+          timeStr = pad(info.start.getHours()) + ':' + pad(info.start.getMinutes());
+        }
+        openCitaOffcanvas(dateStr, timeStr);
+        calendar.unselect(); // remove highlight after opening
+      },
+
+      /* ── Drag to move ── */
+      eventDrop: function (info) { updateEventTime(info); },
+      eventResize: function (info) { updateEventTime(info); },
+
+      /* ── Click existing event → detail modal ── */
+      eventClick: function (info) {
+        var ev = info.event;
+        var modalEl = document.getElementById('consultModal');
+        var bsModal = modalEl ? new bootstrap.Modal(modalEl) : null;
+        if (!bsModal) return;
+
+        modalEl.querySelector('#cm-id').value = ev.id;
+        modalEl.querySelector('#cm-patient-id').value = ev.extendedProps.patientId || '';
+        modalEl.querySelector('#cm-prof-id').value = ev.extendedProps.professionalId || '';
+        modalEl.querySelector('#cm-duration').value = ev.extendedProps.duration || 60;
+        modalEl.querySelector('#cm-title').textContent = ev.extendedProps.patientName || ev.title || 'Consulta';
+        modalEl.querySelector('#cm-status').textContent = ev.extendedProps.statusDisplay || ev.extendedProps.status || '';
+        modalEl.querySelector('#cm-consultorio').textContent = ev.extendedProps.consultorio || '—';
+        modalEl.querySelector('#cm-professional').textContent = ev.extendedProps.professionalName || '—';
+        modalEl.querySelector('#cm-datetime').textContent = ev.start ? ev.start.toLocaleString('es-BO') : '—';
+        modalEl.querySelector('#cm-duration-view').textContent = (ev.extendedProps.duration || 60) + ' min';
+
+        var colorInput = modalEl.querySelector('#cm-color');
+        if (colorInput) {
+          colorInput.value = ev.backgroundColor || '#64B5F6';
+          colorInput.onchange = function () {
+            var hex = colorInput.value;
+            var pid = ev.extendedProps.patientId;
+            if (!pid) { showToast('Sin paciente asociado', 'warning'); return; }
+            fetch('{% url "patient_color_update_api" 0 %}'.replace('/0/', '/' + pid + '/'), {
+              method: 'POST', credentials: 'same-origin',
+              headers: { 'X-CSRFToken': getCookie('csrftoken'), 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: 'color=' + encodeURIComponent(hex)
+            }).then(r => r.json()).then(data => {
+              if (data.ok) { ev.setProp('backgroundColor', hex); ev.setProp('borderColor', hex); showToast('Color actualizado', 'success'); }
+              else showToast(data.message || 'Error', 'danger');
+            }).catch(() => showToast('Error al actualizar color', 'danger'));
+          };
+        }
+
+        var actCancel = modalEl.querySelector('#cm-action-cancel');
+        var actRes = modalEl.querySelector('#cm-action-resched');
+        var resSec = modalEl.querySelector('#cm-resched-section');
+        var confirmBtn = modalEl.querySelector('#cm-confirm');
+        actCancel.checked = true;
+        resSec.classList.add('d-none');
+        confirmBtn.className = 'btn btn-sm bg-gradient-danger d-flex align-items-center gap-1';
+
+        function toggleRes() {
+          resSec.classList.toggle('d-none', !actRes.checked);
+          confirmBtn.className = actRes.checked
+            ? 'btn btn-sm bg-gradient-info d-flex align-items-center gap-1'
+            : 'btn btn-sm bg-gradient-danger d-flex align-items-center gap-1';
+        }
+        actCancel.onchange = toggleRes;
+        actRes.onchange = toggleRes;
+
+        var resDate = modalEl.querySelector('#cm-resched-date');
+        var resTime = modalEl.querySelector('#cm-resched-time');
+        resDate.value = '';
+        resTime.innerHTML = '<option value="">—</option>';
+        resDate.onchange = function () {
+          var profId = ev.extendedProps.professionalId;
+          if (!profId || !resDate.value) { resTime.innerHTML = '<option value="">—</option>'; return; }
+          var dur = ev.extendedProps.duration || 60;
+          var url = '{% url "available_slots_api" %}?date=' + encodeURIComponent(resDate.value)
+                    + '&duration=' + dur + '&professional_id=' + profId;
+          fetch(url, { credentials: 'same-origin' }).then(r => r.json()).then(d => {
+            var slots = d.slots || [];
+            resTime.innerHTML = slots.length
+              ? slots.map(s => '<option value="' + s + '">' + s + '</option>').join('')
+              : '<option value="">Sin horarios disponibles</option>';
+          }).catch(() => { resTime.innerHTML = '<option value="">Error</option>'; });
+        };
+
+        confirmBtn.onclick = function () {
+          var mode = actRes.checked ? 'reschedule' : 'cancel';
+          if (mode === 'cancel') {
+            fetch('{% url "consultation_cancel_api" 0 %}'.replace('/0/', '/' + ev.id + '/'), {
+              method: 'POST', credentials: 'same-origin',
+              headers: { 'X-CSRFToken': getCookie('csrftoken'), 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: 'mode=cancel'
+            }).then(r => r.json()).then(data => {
+              if (data.ok) { bsModal.hide(); ev.remove(); showToast('Consulta cancelada', 'success'); }
+              else showToast(data.message || 'Error', 'danger');
+            }).catch(() => showToast('Error al cancelar', 'danger'));
+          } else {
+            var d = resDate.value, t = resTime.value;
+            if (!d || !t) { showToast('Seleccione fecha y hora', 'warning'); return; }
+            fetch('{% url "consultation_cancel_api" 0 %}'.replace('/0/', '/' + ev.id + '/'), {
+              method: 'POST', credentials: 'same-origin',
+              headers: { 'X-CSRFToken': getCookie('csrftoken'), 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: 'mode=reschedule&date=' + encodeURIComponent(d) + '&time=' + encodeURIComponent(t)
+            }).then(r => r.json()).then(data => {
+              if (data.ok) {
+                var startIso = d + 'T' + t + ':00';
+                var dur = ev.extendedProps.duration || 60;
+                var start = new Date(startIso);
+                var end = new Date(start.getTime() + dur * 60000);
+                ev.setStart(start); ev.setEnd(end);
+                bsModal.hide();
+                showToast('Consulta reprogramada', 'success');
+              } else showToast(data.message || 'Error', 'danger');
+            }).catch(() => showToast('Error al reprogramar', 'danger'));
+          }
+        };
+
+        bsModal.show();
+      }
+    });
+
+    window.calendar = calendar; // expose for filter refresh
+    calendar.render();
+
+    /* ── drag-to-move API call ── */
+    function updateEventTime(info) {
+      var ev = info.event;
+      fetch('{% url "consultation_time_update_api" 0 %}'.replace('/0/', '/' + ev.id + '/'), {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'X-CSRFToken': getCookie('csrftoken'), 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'start=' + encodeURIComponent(ev.start.toISOString()) + '&end=' + encodeURIComponent(ev.end.toISOString())
+      }).then(r => r.json()).then(data => {
+        if (!data.ok) { showToast(data.message || 'Error al mover', 'danger'); info.revert(); }
+        else showToast('Cita actualizada', 'success');
+      }).catch(() => { showToast('Error al actualizar', 'danger'); info.revert(); });
+    }
+
+    /* ── filter form ── */
+    document.getElementById('calendarFilters').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var fp = new URLSearchParams(new FormData(e.target));
+      window.history.replaceState({}, '', window.location.pathname + '?' + fp.toString());
+      consultorioFilter = fp.get('consultorio') || '';
+      calendar.refetchEvents();
+    });
+
+  }); // end DOMContentLoaded
+}());
+</script>
 {% endblock extra_js %}
