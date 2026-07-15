@@ -1,0 +1,57 @@
+site_name: Documentación Técnica — CereDB
+site_description: Sistema de gestión clínica + monitoreo EEG con detección de emociones
+docs_dir: docs
+theme:
+  name: material
+  language: es
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Modo oscuro
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Modo claro
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.top
+    - toc.integrate
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.details
+
+nav:
+  - Inicio: README.md
+  - Visión general:
+      - 01 · Visión General: 01-vision-general.md
+      - 02 · Arquitectura Global: 02-arquitectura.md
+      - 03 · Modelo de Datos: 03-modelo-de-datos.md
+  - Aplicación web:
+      - 04 · Aplicación Web: 04-aplicacion-web.md
+      - 05 · Módulo de Finanzas: 05-modulo-finanzas.md
+      - 06 · IA de Análisis de Pacientes: 06-ia-analisis-pacientes.md
+      - Detalle del chat clínico: chat_pacientes_tecnico.md
+  - Aplicación de escritorio EEG:
+      - 07 · App de Escritorio EEG: 07-app-escritorio-eeg.md
+      - 08 · Neurosky y ThinkGear: 08-neurosky-thinkgear.md
+      - 09 · Procesamiento de la Señal: 09-procesamiento-senal.md
+      - 10 · Modelo CNN de Emociones: 10-modelo-cnn-emociones.md
+      - 11 · Integración de Datos: 11-integracion-datos.md
+  - Operación:
+      - 12 · Despliegue: 12-despliegue.md
+      - 13 · Glosario Técnico: 13-glosario.md
