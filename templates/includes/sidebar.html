@@ -88,16 +88,18 @@
         <li class="nav-item mt-3">
           <h6 class="ps-4 ms-2 text-uppercase text-xs text-dark font-weight-bolder opacity-5">Reportes</h6>
         </li>
+        {% if not is_secretary %}
         <li class="nav-item">
           <a class="nav-link {% if 'report_sessions' == segment %} active bg-gradient-dark text-white {% else %} text-dark {% endif %}" href="{% url 'report_sessions' %}">
             <i class="material-symbols-rounded opacity-5">description</i>
             <span class="nav-link-text ms-1">Reporte Sesiones</span>
           </a>
         </li>
+        {% endif %}
         <li class="nav-item">
-          <a class="nav-link {% if 'eegstats' == segment %} active bg-gradient-dark text-white {% else %} text-dark {% endif %}">
+          <a class="nav-link {% if 'eegstats' == segment %} active bg-gradient-dark text-white {% else %} text-dark {% endif %}" href="{% url 'eeg_stats' %}">
             <i class="material-symbols-rounded opacity-5">analytics</i>
-            <span class="nav-link-text ms-1">Estadisticas EEG</span>
+            <span class="nav-link-text ms-1">Estadísticas EEG</span>
           </a>
         </li>
 {#        <li class="nav-item">#}
@@ -137,7 +139,7 @@
 {#          </a>#}
 {#        </li>#}
         {# Removed "Mi Cuenta" section per new requirements #}
-        {% if request.user.is_staff %}
+        {% if request.user.is_staff or is_secretary %}
         <li class="nav-item mt-3">
           <h6 class="ps-4 ms-2 text-uppercase text-xs text-dark font-weight-bolder opacity-5">Finanzas</h6>
         </li>
@@ -159,6 +161,8 @@
             <span class="nav-link-text ms-1">Pagos</span>
           </a>
         </li>
+        {% endif %}
+        {% if request.user.is_staff %}
         <li class="nav-item mt-3">
           <h6 class="ps-4 ms-2 text-uppercase text-xs text-dark font-weight-bolder opacity-5">Configuraciones</h6>
         </li>

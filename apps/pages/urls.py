@@ -46,6 +46,7 @@ urlpatterns = [
     path('consult/list/', views.consult_table, name='consult_table'),
     path('api/calendar/events/', views.calendar_events_api, name='calendar_events_api'),
     path('consult/update-time/<int:consultation_id>/', views.consultation_time_update_api, name='consultation_time_update_api'),
+    path('consult/edit/<int:consultation_id>/', views.consultation_edit_api, name='consultation_edit_api'),
     # AI Report & Chat
     path('report/sessions/', views.report_sessions, name='report_sessions'),
     path('report/sessions/chat/', views.report_sessions_chat, name='report_sessions_chat'),
@@ -53,4 +54,7 @@ urlpatterns = [
     path('report/sessions/pdf/', views.report_sessions_pdf, name='report_sessions_pdf'),
     # History manager
     path('patients/<int:patient_id>/history-manager/', views.patient_history_manager, name='patient_history_manager'),
+    # EEG Analytics
+    path('report/eeg/', views.eeg_stats, name='eeg_stats'),
+    path('report/eeg/download-installer/', views.eeg_download_installer, name='eeg_download_installer'),
 ]

@@ -7,11 +7,17 @@ from django.utils import timezone
 
 from .models import PaymentRequest, Payment
 from .forms import PaymentCreateForm
+from apps.pages.models import Professional
+
+
+def _is_secretary(user):
+    prof = Professional.objects.filter(user=user).first()
+    return prof is not None and prof.role == 'secretary'
 
 
 def staff_required(view_func):
     def wrapper(request, *args, **kwargs):
-        if not request.user.is_staff:
+        if not (request.user.is_staff or _is_secretary(request.user)):
             messages.error(request, 'Sección disponible solo para administradores.')
             return redirect('index')
         return view_func(request, *args, **kwargs)

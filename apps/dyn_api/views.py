@@ -23,7 +23,7 @@ try:
 except:     
     pass 
 
-from .helpers import Utils 
+from .helpers import Utils, check_permission
 
 @login_required
 def index(request):
@@ -82,7 +82,7 @@ class DynamicAPI(APIView):
             }, status=200)
 
     # CREATE : POST api/model/
-    #@check_permission
+    @check_permission
     def post(self, request, **kwargs):
         try:
             model_serializer = Utils.get_serializer(DYNAMIC_API, kwargs.get('model_name'))(data=request.data)
@@ -104,7 +104,7 @@ class DynamicAPI(APIView):
         }, status=200)
 
     # UPDATE : PUT api/model/id/
-    #@check_permission
+    @check_permission
     def put(self, request, **kwargs):
         try:
             thing = get_object_or_404(Utils.get_manager(DYNAMIC_API, kwargs.get('model_name')), id=kwargs.get('id'))
@@ -134,7 +134,7 @@ class DynamicAPI(APIView):
             }, status=200)
 
     # DELETE : DELETE api/model/id/
-    #@check_permission
+    @check_permission
     def delete(self, request, **kwargs):
         try:
             model_manager = Utils.get_manager(DYNAMIC_API, kwargs.get('model_name'))

@@ -258,6 +258,122 @@
   </div>
 </div>
 
+<!-- Offcanvas: Editar Cita -->
+<div class="offcanvas offcanvas-end shadow-lg" tabindex="-1" id="editCitaCanvas">
+  <div class="offcanvas-header border-bottom">
+    <div class="d-flex align-items-center gap-2">
+      <div style="width:36px;height:36px;border-radius:50%;background:#344767;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="material-symbols-rounded text-white" style="font-size:1rem">edit_calendar</i>
+      </div>
+      <h6 class="mb-0">Editar Cita</h6>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+  </div>
+  <div class="offcanvas-body">
+    <form id="consultEditForm">
+      {% csrf_token %}
+      <input type="hidden" name="edit_consultation_id" id="editConsultId">
+
+      <p class="text-xs text-uppercase text-secondary font-weight-bolder mb-3 mt-1">Paciente</p>
+      <div class="mb-3">
+        <label class="field-label">Paciente</label>
+        <div id="editPatientDisplay"
+             style="padding:.55rem .75rem;background:#f8f9fa;border:1px solid #e0e0e0;border-radius:.5rem;font-size:.875rem;color:#344767">
+        </div>
+      </div>
+
+      {% if is_admin %}
+      <div class="mb-3">
+        <label class="field-label">Profesional <span class="req">*</span></label>
+        <div class="custom-combo" id="profComboEdit">
+          <div class="custom-combo-trigger" id="profTriggerEdit" tabindex="0"
+               role="combobox" aria-expanded="false" aria-haspopup="listbox">
+            <div id="profDisplayEdit"><span class="placeholder-text">Seleccionar profesional</span></div>
+            <i class="material-symbols-rounded combo-arrow">expand_more</i>
+          </div>
+          <input type="hidden" name="professional" id="profHiddenEdit">
+          <div class="custom-combo-dropdown" id="profDropdownEdit">
+            <div class="combo-search-wrap">
+              <i class="material-symbols-rounded">search</i>
+              <input type="text" class="combo-search-input" id="profSearchEdit" placeholder="Buscar profesional...">
+            </div>
+            <div class="combo-options" id="profOptionsEdit">
+              {% for prof in all_professionals %}
+              <div class="combo-option"
+                   data-value="{{ prof.id }}"
+                   data-name="{{ prof.first_name }} {{ prof.last_name }}"
+                   data-role="{{ prof.get_role_display }}"
+                   data-initials="{{ prof.first_name|slice:':1' }}{{ prof.last_name|slice:':1' }}"
+                   data-search="{{ prof.first_name|lower }} {{ prof.last_name|lower }}">
+                <div class="combo-avatar"
+                     style="background:{% if prof.role == 'psychologist' %}#1a73e8{% else %}#7c3aed{% endif %}">
+                  {{ prof.first_name|slice:":1" }}{{ prof.last_name|slice:":1" }}
+                </div>
+                <span class="combo-name">{{ prof.first_name }} {{ prof.last_name }}</span>
+                <span class="combo-role">{{ prof.get_role_display }}</span>
+              </div>
+              {% endfor %}
+            </div>
+            <div class="combo-no-results" id="profNoResultsEdit">Sin resultados</div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <p class="text-xs text-uppercase text-secondary font-weight-bolder mb-3 mt-4">Programación</p>
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="field-label">Consultorio <span class="req">*</span></label>
+          <select name="consultorio" id="editConsultorio" class="form-select" required>
+            <option value="">Seleccionar consultorio</option>
+            {% for c in consultorios %}
+            {% if c.is_active %}
+            <option value="{{ c.id }}">{{ c.name }}{% if c.address %} – {{ c.address }}{% endif %}</option>
+            {% endif %}
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="field-label">Fecha <span class="req">*</span></label>
+          <input type="date" name="date" id="editDate" class="form-control" required min="{{ today|date:'Y-m-d' }}">
+        </div>
+        <div class="col-md-6">
+          <label class="field-label">Duración</label>
+          <select name="duration" id="editDuration" class="form-select">
+            <option value="30">30 min</option>
+            <option value="60">1 hora</option>
+            <option value="90">1h 30min</option>
+            <option value="120">2 horas</option>
+            <option value="150">2h 30min</option>
+            <option value="180">3 horas</option>
+            <option value="210">3h 30min</option>
+            <option value="240">4 horas</option>
+          </select>
+        </div>
+        <div class="col-12">
+          <label class="field-label">Hora <span class="req">*</span></label>
+          <select name="time" id="editTime" class="form-select" required>
+            <option value="">Cargando horarios...</option>
+          </select>
+        </div>
+      </div>
+
+      <p class="text-xs text-uppercase text-secondary font-weight-bolder mb-3 mt-4">Notas</p>
+      <div class="mb-3">
+        <textarea name="notes" id="editNotes" class="form-control" rows="3"
+                  placeholder="Observaciones para la cita..."></textarea>
+      </div>
+
+      <div class="d-grid mt-4">
+        <button type="submit" class="btn bg-gradient-dark">
+          <i class="material-symbols-rounded me-1" style="font-size:1rem">save</i>
+          Guardar Cambios
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
 {% endblock content %}
 
 {% block extra_js %}
@@ -386,6 +502,156 @@
     }
 
     refreshTable();
+
+    // ── Edit Cita ────────────────────────────────────────────────────────────
+    var editCanvas = document.getElementById('editCitaCanvas');
+    var editOC = editCanvas ? new bootstrap.Offcanvas(editCanvas) : null;
+
+    {% if is_admin %}
+    initCombo({
+      combo: 'profComboEdit', trigger: 'profTriggerEdit',
+      dropdown: 'profDropdownEdit', display: 'profDisplayEdit',
+      hidden: 'profHiddenEdit', search: 'profSearchEdit',
+      options: 'profOptionsEdit', noResults: 'profNoResultsEdit'
+    });
+    var profHiddenEdit = document.getElementById('profHiddenEdit');
+    if (profHiddenEdit) profHiddenEdit.addEventListener('change', refreshEditSlots);
+    {% endif %}
+
+    var editDateInput  = document.getElementById('editDate');
+    var editDurInput   = document.getElementById('editDuration');
+    var editTimeSelect = document.getElementById('editTime');
+    if (editDateInput)  editDateInput.addEventListener('change', refreshEditSlots);
+    if (editDurInput)   editDurInput.addEventListener('change', refreshEditSlots);
+
+    function refreshEditSlots(targetTime) {
+      if (!editTimeSelect) return;
+      var date = editDateInput ? editDateInput.value : '';
+      var duration = editDurInput ? editDurInput.value : '60';
+      {% if is_admin %}
+      var profId = profHiddenEdit ? profHiddenEdit.value : '';
+      {% else %}
+      var profId = '';
+      {% endif %}
+      var params = new URLSearchParams();
+      if (!date) {
+        editTimeSelect.innerHTML = '<option value="">Seleccione una fecha</option>';
+        return;
+      }
+      params.set('date', date);
+      params.set('duration', duration);
+      if (profId) params.set('professional_id', profId);
+      get('{% url "available_slots_api" %}?' + params.toString()).then(function (data) {
+        editTimeSelect.innerHTML = '';
+        var desired = typeof targetTime === 'string' ? targetTime : editTimeSelect.dataset.desired || '';
+        if (data.slots && data.slots.length) {
+          var def = document.createElement('option');
+          def.value = ''; def.textContent = 'Seleccionar hora';
+          editTimeSelect.appendChild(def);
+          data.slots.forEach(function (s) {
+            var opt = document.createElement('option');
+            opt.value = s; opt.textContent = s;
+            editTimeSelect.appendChild(opt);
+          });
+          // also add desired if not in list (consultation exists at that time)
+          var found = data.slots.indexOf(desired) !== -1;
+          if (!found && desired) {
+            var opt2 = document.createElement('option');
+            opt2.value = desired; opt2.textContent = desired + ' (actual)';
+            editTimeSelect.appendChild(opt2);
+          }
+          if (desired) editTimeSelect.value = desired;
+        } else {
+          // No available slots but we still need to show the current time
+          if (desired) {
+            var only = document.createElement('option');
+            only.value = desired; only.textContent = desired + ' (actual)';
+            editTimeSelect.appendChild(only);
+            editTimeSelect.value = desired;
+          } else {
+            editTimeSelect.innerHTML = '<option value="">No hay horarios disponibles</option>';
+          }
+        }
+      }).catch(function () {
+        editTimeSelect.innerHTML = '<option value="">Error al cargar horarios</option>';
+      });
+    }
+
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.edit-cita-btn');
+      if (!btn) return;
+
+      var id = btn.dataset.id;
+      document.getElementById('editConsultId').value = id;
+
+      // Patient display
+      var patientDisplay = document.getElementById('editPatientDisplay');
+      if (patientDisplay) patientDisplay.textContent = btn.dataset.patientName;
+
+      {% if is_admin %}
+      // Professional combo
+      var pid = btn.dataset.profId;
+      var pname = btn.dataset.profName;
+      var prole = btn.dataset.profRole;
+      var pinit = btn.dataset.profInitials;
+      if (profHiddenEdit) profHiddenEdit.value = pid;
+      var profDisplay = document.getElementById('profDisplayEdit');
+      if (profDisplay && pid) {
+        profDisplay.innerHTML =
+          '<div class="combo-avatar" style="background:#344767;font-size:.7rem">' + pinit + '</div>' +
+          '<span class="combo-name">' + pname + '</span>' +
+          '<span class="combo-role">' + prole + '</span>';
+      }
+      {% endif %}
+
+      // Consultorio
+      var consulSel = document.getElementById('editConsultorio');
+      if (consulSel) consulSel.value = btn.dataset.consultorioId;
+
+      // Date
+      if (editDateInput) editDateInput.value = btn.dataset.date;
+
+      // Duration
+      if (editDurInput) editDurInput.value = btn.dataset.duration;
+
+      // Time — store desired and trigger slot refresh
+      var desiredTime = btn.dataset.time;
+      if (editTimeSelect) {
+        editTimeSelect.innerHTML = '<option value="">Cargando horarios...</option>';
+        editTimeSelect.dataset.desired = desiredTime;
+      }
+      refreshEditSlots(desiredTime);
+
+      // Notes
+      var notesEl = document.getElementById('editNotes');
+      if (notesEl) notesEl.value = btn.dataset.notes || '';
+
+      if (editOC) editOC.show();
+    });
+
+    var editForm = document.getElementById('consultEditForm');
+    if (editForm) {
+      editForm.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        var id = document.getElementById('editConsultId').value;
+        var fd = new FormData(editForm);
+        fetch('/consult/edit/' + id + '/', {
+          method: 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken') },
+          body: fd,
+          credentials: 'same-origin'
+        }).then(function (r) { return r.json().catch(function () { return { ok: false, message: 'Error de servidor' }; }); })
+          .then(function (res) {
+            if (res && res.ok) {
+              showToast(res.message || 'Cita actualizada', 'success');
+              refreshTable();
+              if (editOC) editOC.hide();
+            } else {
+              showToast((res && res.message) || 'No se pudo actualizar la cita', 'danger');
+            }
+          }).catch(function () { showToast('Error de red', 'danger'); });
+      });
+    }
   });
 }());
 </script>

@@ -96,6 +96,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.pages.context_processors.role_flags",
             ],
         },
     },
@@ -123,7 +124,11 @@ if DB_ENGINE and DB_NAME and DB_USERNAME:
         'PASSWORD': DB_PASS,
         'HOST'    : DB_HOST,
         'PORT'    : DB_PORT,
-        }, 
+        # Reuse DB connections across requests — critical with a remote DB,
+        # otherwise every request pays a fresh TCP+auth handshake
+        'CONN_MAX_AGE': 600,
+        'CONN_HEALTH_CHECKS': True,
+        },
     }
 else:
     DATABASES = {
@@ -132,6 +137,10 @@ else:
             'NAME': 'db.sqlite3',
         }
     }
+
+# Sessions: keep them in the DB but cache reads locally, so most requests
+# skip one remote-DB round-trip (falls back to DB on cache miss — safe)
+SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
 
 # Password validation
 # https://docs.djangoproject.com/en/4.1/ref/settings/#auth-password-validators

@@ -1,6 +1,7 @@
 import requests, base64, json, csv
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
 from django.utils import timezone
 from django.http import HttpResponse, JsonResponse
 from django.utils.safestring import mark_safe
@@ -267,6 +268,10 @@ def update(request, aPath, id):
 
 # Export as CSV
 class ExportCSVView(View):
+    @method_decorator(login_required(login_url='/accounts/login/'))
+    def dispatch(self, *args, **kwargs):
+        return super().dispatch(*args, **kwargs)
+
     def get(self, request, aPath):
         aModelName  = None
         aModelClass = None

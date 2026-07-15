@@ -5,9 +5,9 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import views as auth_views
 from django.contrib.auth import update_session_auth_hash
 from django.db import IntegrityError
-from django.db.models import Sum
+from django.db.models import Sum, Count
 from .models import Patient, Professional, Consultation, ConsultationNote, ConsultationAttachment, Consultorio
-from .models import PatientAIThread, PatientAIMessage, Specialty
+from .models import PatientAIThread, PatientAIMessage, Specialty, EEGSession, EEGReading
 from django.contrib import messages
 from .forms import CustomLoginForm, UsernameRecoveryForm
 from .forms import ProfessionalProfileForm, ProfessionalContactForm
@@ -33,14 +33,12 @@ from django.conf import settings
 @login_required
 def index(request):
     today = ddate.today()
-    is_admin = request.user.is_staff
+    is_secretary = _is_secretary(request.user)
+    is_admin = request.user.is_staff or is_secretary
     professional = None
 
     if not is_admin:
-        try:
-            professional = Professional.objects.get(user=request.user)
-        except Professional.DoesNotExist:
-            professional = None
+        professional = _get_professional(request.user)
 
     # Base queryset scoped by role
     if is_admin:
@@ -59,11 +57,18 @@ def index(request):
     today_count = len(today_qs)
     today_pending = sum(1 for c in today_qs if c.status == 'pending')
 
-    # This week vs last week (Mon–today)
+    # This week vs last week (Mon–today) + last-7-days chart, all from ONE
+    # grouped query (each extra query costs a full round-trip to the remote DB)
     week_start = today - timedelta(days=today.weekday())
     last_week_start = week_start - timedelta(days=7)
-    this_week_count = base_qs.filter(date__gte=week_start, date__lte=today).count()
-    last_week_count = base_qs.filter(date__gte=last_week_start, date__lt=week_start).count()
+    range_start = min(last_week_start, today - timedelta(days=6))
+    counts_by_date = {
+        row['date']: row['n']
+        for row in base_qs.filter(date__gte=range_start, date__lte=today)
+                          .values('date').annotate(n=Count('id'))
+    }
+    this_week_count = sum(n for d, n in counts_by_date.items() if week_start <= d <= today)
+    last_week_count = sum(n for d, n in counts_by_date.items() if last_week_start <= d < week_start)
 
     # Next upcoming pending consultations (today + future)
     upcoming = list(
@@ -79,25 +84,32 @@ def index(request):
             if professional else []
         )
 
-    # Pending payment requests (admin only)
+    # Pending payment requests (admin only) — single annotated query instead
+    # of loading every request and running one SUM query per row (N+1)
     pending_payments_count = 0
     if is_admin:
         try:
             from apps.finance.models import PaymentRequest
-            pending_payments_count = sum(
-                1 for r in PaymentRequest.objects.select_related('consultation')
-                if r.status in ('pending', 'partial')
+            from django.db.models import Sum, Q, F
+            from django.db.models.functions import Coalesce
+            from decimal import Decimal
+            pending_payments_count = (
+                PaymentRequest.objects
+                .annotate(paid=Coalesce(Sum('payments__amount'), Decimal('0.00')))
+                .filter(Q(expected_amount__isnull=True) | Q(expected_amount=0) | Q(paid__lt=F('expected_amount')))
+                .count()
             )
         except Exception:
             pending_payments_count = 0
 
-    # Consultations per day for the last 7 days (for bar chart)
+    # Consultations per day for the last 7 days (for bar chart) — reuses the
+    # grouped counts fetched above, no extra queries
     last_7_days = [today - timedelta(days=i) for i in range(6, -1, -1)]
     day_labels = []
     day_counts = []
     for day in last_7_days:
         day_labels.append(day.strftime('%a'))
-        day_counts.append(base_qs.filter(date=day).count())
+        day_counts.append(counts_by_date.get(day, 0))
 
     import json
     return render(request, 'pages/index.html', {
@@ -152,7 +164,8 @@ def username_recovery(request):
 @login_required
 def patients(request):
     # Determine if user is a professional or admin
-    is_admin = request.user.is_staff
+    is_secretary = _is_secretary(request.user)
+    is_admin = request.user.is_staff or is_secretary
     professional = None
 
     if not is_admin:
@@ -194,10 +207,10 @@ def patients(request):
 
     # Get the appropriate patients list
     if is_admin:
-        patients_list = Patient.objects.all().order_by('-created_at')
-        all_professionals = Professional.objects.all()
+        patients_list = Patient.objects.select_related('professional').order_by('-created_at')
+        all_professionals = Professional.objects.exclude(role='secretary')
     else:
-        patients_list = Patient.objects.filter(professional=professional).order_by('-created_at')
+        patients_list = Patient.objects.filter(professional=professional).select_related('professional').order_by('-created_at')
         all_professionals = None
 
     return render(request, 'pages/patients.html', {
@@ -214,7 +227,7 @@ def edit_patient(request, patient_id):
     patient = get_object_or_404(Patient, id=patient_id)
 
     # Check if the user is an admin
-    is_admin = request.user.is_superuser
+    is_admin = request.user.is_staff or _is_secretary(request.user)
 
     # If user is not admin, check if the patient belongs to the professional
     if not is_admin:
@@ -224,7 +237,7 @@ def edit_patient(request, patient_id):
             return redirect('patients')
 
     # Get all professionals for the dropdown
-    all_professionals = Professional.objects.all()
+    all_professionals = Professional.objects.exclude(role='secretary')
 
     if request.method == 'POST':
         # Process the form data
@@ -286,7 +299,7 @@ def delete_patient(request, patient_id):
         return redirect('patients')
 
     # Check if user has access to delete this patient
-    is_admin = request.user.is_staff
+    is_admin = request.user.is_staff or _is_secretary(request.user)
     if not is_admin:
         try:
             professional = Professional.objects.get(user=request.user)
@@ -517,6 +530,8 @@ def delete_specialty(request, specialty_id):
 
 @login_required
 def my_patients(request):
+    if _is_secretary(request.user):
+        return redirect('patients')
     is_staff = request.user.is_staff
     prof = Professional.objects.filter(user=request.user).first()
     if not is_staff and not prof:
@@ -526,16 +541,23 @@ def my_patients(request):
     patients_qs = Patient.objects.all() if is_staff else Patient.objects.filter(professional=prof)
     patients_qs = patients_qs.order_by('first_name', 'last_name')
 
-    # Precompute aggregates
+    # Precompute aggregates in 2 queries total (annotated count + grouped
+    # payment sums) instead of 2 queries per patient
     from apps.finance.models import Payment
+    patients_list = list(patients_qs.annotate(consult_count=Count('consultations')))
+    paid_by_patient = {
+        row['request__consultation__patient_id']: row['total']
+        for row in Payment.objects
+            .filter(request__consultation__patient__in=patients_list)
+            .values('request__consultation__patient_id')
+            .annotate(total=Sum('amount'))
+    }
     data = []
-    for p in patients_qs:
-        consultations = Consultation.objects.filter(patient=p)
-        total_paid = Payment.objects.filter(request__consultation__in=consultations).aggregate(total=Sum('amount'))['total'] or 0
+    for p in patients_list:
         data.append({
             'patient': p,
-            'consult_count': consultations.count(),
-            'total_paid': total_paid,
+            'consult_count': p.consult_count,
+            'total_paid': paid_by_patient.get(p.id, 0) or 0,
         })
 
     total_consult_count = sum(r['consult_count'] for r in data)
@@ -550,6 +572,9 @@ def my_patients(request):
 
 @login_required
 def patient_history(request, patient_id):
+    if _is_secretary(request.user):
+        messages.error(request, 'No tienes permiso para acceder al historial de pacientes.')
+        return redirect('patients')
     patient = get_object_or_404(Patient, id=patient_id)
     is_staff = request.user.is_staff
     prof = Professional.objects.filter(user=request.user).first()
@@ -596,7 +621,8 @@ def patient_history(request, patient_id):
 @login_required
 def consult(request):
     # Determine if user is a professional or admin
-    is_admin = request.user.is_staff
+    is_secretary = _is_secretary(request.user)
+    is_admin = request.user.is_staff or is_secretary
     professional = None
 
     if not is_admin:
@@ -620,8 +646,8 @@ def consult(request):
         if delete_id and delete_id.isdigit():
             cons = Consultation.objects.filter(id=int(delete_id)).first()
             if cons:
-                # Authorization: staff or owning professional
-                if request.user.is_staff or cons.professional.user_id == request.user.id:
+                # Authorization: staff, secretary, or owning professional
+                if request.user.is_staff or is_secretary or cons.professional.user_id == request.user.id:
                     cons.delete()
                     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                         return JsonResponse({'ok': True, 'message': 'Consulta eliminada.'})
@@ -692,21 +718,19 @@ def consult(request):
     # Get patients based on user role
     patients = Patient.objects.all() if is_admin else Patient.objects.filter(professional=professional)
 
-    # Get all professionals for admin selection
-    all_professionals = Professional.objects.all() if is_admin else None
+    # Get all professionals for admin selection (exclude secretaries from clinical dropdowns)
+    all_professionals = Professional.objects.exclude(role='secretary') if is_admin else None
 
-    # Auto update: mark past pending as no_show
+    # Auto update: mark past pending as no_show (bulk UPDATEs, not row-by-row)
     now_dt = datetime.now()
-    pending_qs = Consultation.objects.filter(date__lt=now_dt.date(), status='pending')
-    # also same-day but time passed
-    pending_qs_same = Consultation.objects.filter(date=now_dt.date(), time__lt=now_dt.time(), status='pending')
-    pending_qs = pending_qs.union(pending_qs_same)
-    for c in pending_qs:
-        c.status = 'no_show'
-        c.save(update_fields=['status'])
+    Consultation.objects.filter(date__lt=now_dt.date(), status='pending').update(status='no_show')
+    Consultation.objects.filter(date=now_dt.date(), time__lt=now_dt.time(), status='pending').update(status='no_show')
 
-    # Get consultations with filters
-    qs = Consultation.objects.all() if is_admin else Consultation.objects.filter(professional=professional)
+    # Get consultations with filters (select_related avoids one query per row
+    # when the template renders patient/professional/consultorio names)
+    qs = Consultation.objects.select_related('patient', 'professional', 'consultorio_fk')
+    if not is_admin:
+        qs = qs.filter(professional=professional)
     patient_filter = request.GET.get('patient')
     consultory_filter = request.GET.get('consultory')
     date_filter = request.GET.get('date')
@@ -744,14 +768,18 @@ def consult(request):
 # Add this temporary view for the "start session" button
 @login_required
 def start_session(request, consultation_id):
-    consultation = get_object_or_404(Consultation, id=consultation_id)
+    if _is_secretary(request.user):
+        messages.error(request, 'No tienes permiso para acceder a esta sección.')
+        return redirect('consult')
+
+    consultation = get_object_or_404(
+        Consultation.objects.select_related('patient', 'professional', 'consultorio_fk'),
+        id=consultation_id,
+    )
 
     # Authorization: allow if admin or assigned professional
     is_admin = request.user.is_staff
-    try:
-        user_professional = Professional.objects.get(user=request.user)
-    except Professional.DoesNotExist:
-        user_professional = None
+    user_professional = _get_professional(request.user)
     if not is_admin and (not user_professional or user_professional != consultation.professional):
         messages.error(request, 'No tienes permiso para acceder a esta consulta.')
         return redirect('consult')
@@ -842,8 +870,8 @@ def start_session(request, consultation_id):
         consultation.status = 'attended'
         consultation.save(update_fields=['status'])
 
-    notes = consultation.session_notes.all()
-    attachments = consultation.attachments.all()
+    notes = consultation.session_notes.select_related('created_by').all()
+    attachments = consultation.attachments.select_related('uploaded_by').all()
 
     # Group attachments by type for easier display
     grouped_attachments = {}
@@ -864,6 +892,10 @@ def start_session(request, consultation_id):
 
 @login_required
 def end_session(request, consultation_id):
+    if _is_secretary(request.user):
+        messages.error(request, 'No tienes permiso para acceder a esta sección.')
+        return redirect('consult')
+
     consultation = get_object_or_404(Consultation, id=consultation_id)
 
     # Authorization: allow if admin or assigned professional
@@ -918,6 +950,9 @@ def profile(request):
             messages.success(request, 'Contacto eliminado.')
             return redirect('profile')
         elif action == 'update_availability' and professional:
+            if _is_secretary(request.user):
+                messages.error(request, 'No autorizado.')
+                return redirect('profile')
             # Expect fields like availability-<weekday>-closed, availability-<weekday>-start, availability-<weekday>-end
             for wd in range(7):
                 key = f'availability-{wd}-closed'
@@ -1016,7 +1051,7 @@ def available_slots_api(request):
         return JsonResponse({'error': 'Invalid date format'}, status=400)
 
     # Determine professional
-    if request.user.is_staff:
+    if request.user.is_staff or _is_secretary(request.user):
         if not prof_id:
             # For admin, require explicit professional selection; return empty list (no error)
             return JsonResponse({'slots': []})
@@ -1087,7 +1122,7 @@ def config_consultorios(request):
 @login_required
 def consult_table(request):
     # Same filters as consult view, but only return the table fragment
-    is_admin = request.user.is_staff
+    is_admin = request.user.is_staff or _is_secretary(request.user)
     if is_admin:
         qs = Consultation.objects.all()
     else:
@@ -1221,8 +1256,8 @@ def consultorios_calendar(request):
         for cons in qs_month.select_related('patient'):
             month_map.setdefault(cons.date, []).append(cons)
 
-    # Restrict for professionals (non-staff)
-    if not request.user.is_staff:
+    # Restrict for professionals (non-staff, non-secretary)
+    if not (request.user.is_staff or _is_secretary(request.user)):
         prof = Professional.objects.filter(user=request.user).first()
         pid = prof.id if prof else None
         if mode == 'day':
@@ -1242,7 +1277,7 @@ def consultorios_calendar(request):
                     month_map.pop(d, None)
 
     # Data for the "Nueva Cita" offcanvas drawer
-    cal_is_admin = request.user.is_staff
+    cal_is_admin = request.user.is_staff or _is_secretary(request.user)
     cal_professional = None
     if not cal_is_admin:
         try:
@@ -1250,7 +1285,7 @@ def consultorios_calendar(request):
         except Professional.DoesNotExist:
             pass
     cal_patients = Patient.objects.all() if cal_is_admin else Patient.objects.filter(professional=cal_professional)
-    cal_all_professionals = Professional.objects.all() if cal_is_admin else None
+    cal_all_professionals = Professional.objects.exclude(role='secretary') if cal_is_admin else None
     all_active_consultorios = Consultorio.objects.filter(is_active=True)
 
     # ── Business hours for FullCalendar schedule shading (professional only) ──
@@ -1327,7 +1362,7 @@ def consultation_delete_api(request, consultation_id):
     cons = Consultation.objects.filter(id=consultation_id).first()
     if not cons:
         return JsonResponse({'ok': False, 'message': 'Consulta no encontrada'}, status=404)
-    if not (request.user.is_staff or cons.professional.user_id == request.user.id):
+    if not (request.user.is_staff or _is_secretary(request.user) or cons.professional.user_id == request.user.id):
         return JsonResponse({'ok': False, 'message': 'Sin permiso'}, status=403)
     cons.delete()
     return JsonResponse({'ok': True, 'message': 'Consulta eliminada'})
@@ -1339,7 +1374,7 @@ def patient_color_update_api(request, patient_id):
     pat = Patient.objects.filter(id=patient_id).first()
     if not pat:
         return JsonResponse({'ok': False, 'message': 'Paciente no encontrado'}, status=404)
-    if not (request.user.is_staff or (pat.professional and pat.professional.user_id == request.user.id)):
+    if not (request.user.is_staff or _is_secretary(request.user) or (pat.professional and pat.professional.user_id == request.user.id)):
         return JsonResponse({'ok': False, 'message': 'Sin permiso'}, status=403)
     color = request.POST.get('color', '').strip()
     if not color.startswith('#') or len(color) not in (4,7):
@@ -1377,8 +1412,8 @@ def calendar_events_api(request):
         to_exclude = [s.strip() for s in exclude_str.split(',') if s.strip()]
         if to_exclude:
             qs = qs.exclude(status__in=to_exclude)
-    # Restrict for non-staff professionals
-    if not request.user.is_staff:
+    # Restrict for non-staff, non-secretary professionals
+    if not (request.user.is_staff or _is_secretary(request.user)):
         prof = Professional.objects.filter(user=request.user).first()
         if prof:
             qs = qs.filter(professional=prof)
@@ -1428,7 +1463,7 @@ def consultation_time_update_api(request, consultation_id):
     cons = Consultation.objects.select_related('professional','consultorio_fk','patient').filter(id=consultation_id).first()
     if not cons:
         return JsonResponse({'ok': False, 'message': 'Consulta no encontrada'}, status=404)
-    if not (request.user.is_staff or (cons.professional and cons.professional.user_id == request.user.id)):
+    if not (request.user.is_staff or _is_secretary(request.user) or (cons.professional and cons.professional.user_id == request.user.id)):
         return JsonResponse({'ok': False, 'message': 'Sin permiso'}, status=403)
     start_iso = request.POST.get('start')
     end_iso = request.POST.get('end')
@@ -1481,7 +1516,7 @@ def consultation_cancel_api(request, consultation_id):
     cons = Consultation.objects.select_related('professional','consultorio_fk','patient').filter(id=consultation_id).first()
     if not cons:
         return JsonResponse({'ok': False, 'message': 'Consulta no encontrada'}, status=404)
-    if not (request.user.is_staff or (cons.professional and cons.professional.user_id == request.user.id)):
+    if not (request.user.is_staff or _is_secretary(request.user) or (cons.professional and cons.professional.user_id == request.user.id)):
         return JsonResponse({'ok': False, 'message': 'Sin permiso'}, status=403)
 
     mode = (request.POST.get('mode') or 'cancel').strip()
@@ -1534,8 +1569,89 @@ def consultation_cancel_api(request, consultation_id):
         return JsonResponse({'ok': False, 'message': 'Modo inválido'}, status=400)
 
 
+@login_required
+def consultation_edit_api(request, consultation_id):
+    """Full edit of a consultation's scheduling details."""
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'message': 'Método no permitido'}, status=405)
+    cons = Consultation.objects.select_related('professional', 'consultorio_fk', 'patient').filter(id=consultation_id).first()
+    if not cons:
+        return JsonResponse({'ok': False, 'message': 'Consulta no encontrada'}, status=404)
+    is_sec = _is_secretary(request.user)
+    if not (request.user.is_staff or is_sec or (cons.professional and cons.professional.user_id == request.user.id)):
+        return JsonResponse({'ok': False, 'message': 'Sin permiso'}, status=403)
+
+    date_str = request.POST.get('date', '').strip()
+    time_str = request.POST.get('time', '').strip()
+    duration_str = request.POST.get('duration', '').strip()
+    consultorio_id = request.POST.get('consultorio', '').strip()
+    notes = request.POST.get('notes', '')
+    professional_id = request.POST.get('professional', '').strip()
+
+    if not date_str or not time_str:
+        return JsonResponse({'ok': False, 'message': 'Fecha y hora son obligatorias'}, status=400)
+
+    try:
+        date_obj = dt.strptime(date_str, '%Y-%m-%d').date()
+    except Exception:
+        return JsonResponse({'ok': False, 'message': 'Formato de fecha inválido'}, status=400)
+
+    if date_obj < ddate.today():
+        return JsonResponse({'ok': False, 'message': 'La fecha no puede ser anterior a hoy'}, status=400)
+
+    consultorio_obj = None
+    if consultorio_id:
+        consultorio_obj = Consultorio.objects.filter(id=consultorio_id).first()
+
+    # Double-booking check excluding self
+    if consultorio_obj and Consultation.objects.filter(
+        date=date_obj, time=time_str, consultorio_fk=consultorio_obj
+    ).exclude(id=cons.id).exists():
+        return JsonResponse({'ok': False, 'message': 'Ya existe una consulta en ese consultorio para la misma fecha y hora'}, status=409)
+
+    cons.date = date_obj
+    cons.time = time_str
+    if duration_str and duration_str.isdigit():
+        cons.duration = int(duration_str)
+    if consultorio_obj:
+        cons.consultorio_fk = consultorio_obj
+        cons.consultory = consultorio_obj.name
+    cons.notes = notes
+
+    if (request.user.is_staff or is_sec) and professional_id:
+        prof_obj = Professional.objects.exclude(role='secretary').filter(id=professional_id).first()
+        if prof_obj:
+            cons.professional = prof_obj
+
+    cons.save()
+    return JsonResponse({
+        'ok': True,
+        'message': 'Cita actualizada correctamente',
+        'date': str(cons.date),
+        'time': cons.time.strftime('%H:%M'),
+        'duration': cons.duration,
+    })
+
+
 def _get_professional(user):
-    return Professional.objects.filter(user=user).first()
+    # Cache on the user object: with a remote DB every query costs a full
+    # network round-trip, and this lookup happens several times per request
+    if not hasattr(user, '_cached_professional'):
+        user._cached_professional = Professional.objects.filter(user=user).first()
+    return user._cached_professional
+
+
+PSYCHOLOGIST_ROLES = ('psychologist', 'psychiatrist')
+
+
+def _is_secretary(user):
+    prof = _get_professional(user)
+    return prof is not None and prof.role == 'secretary'
+
+
+def _is_psychologist(user):
+    prof = _get_professional(user)
+    return prof is not None and prof.role in PSYCHOLOGIST_ROLES
 
 
 def _build_patient_context(professional: Professional, patient: Patient) -> str:
@@ -1656,6 +1772,8 @@ def _ensure_patient_vector_store(client: OpenAI, thread, prof: Professional, pat
 
 @login_required
 def report_sessions_reupload(request):
+    if _is_secretary(request.user):
+        return JsonResponse({'ok': False, 'error': 'No autorizado'}, status=403)
     if request.method != 'POST':
         return JsonResponse({'ok': False, 'error': 'Método no permitido'}, status=405)
     prof = _get_professional(request.user)
@@ -1730,6 +1848,10 @@ def _ai_summary_prompt(context: str) -> list:
 
 @login_required
 def report_sessions(request):
+    if _is_secretary(request.user):
+        messages.error(request, 'No tienes permiso para acceder a esta sección.')
+        return redirect('index')
+
     # Professionals only (or staff)
     prof = _get_professional(request.user)
     if not (request.user.is_staff or prof):
@@ -1754,9 +1876,9 @@ def report_sessions(request):
                 professional=thread_prof,
                 patient=selected_patient,
             )
-            # Default model to gpt-5 if empty/legacy
-            if created or not thread.model or thread.model == 'gpt-4o-mini':
-                thread.model = 'gpt-5'
+            # Default model to gpt-5-mini (fast) if empty/legacy
+            if created or not thread.model or thread.model in ('gpt-4o-mini', 'gpt-5'):
+                thread.model = 'gpt-5-mini'
                 thread.save(update_fields=['model'])
             # Compute current stats and decide whether to rebuild context
             cons_qs = Consultation.objects.filter(professional=thread_prof, patient=selected_patient)
@@ -1814,7 +1936,7 @@ def report_sessions(request):
                         thread.save(update_fields=['openai_conversation_id'])
                         # Generate initial structured summary via file_search tool
                         resp = client.responses.create(
-                            model=thread.model or 'gpt-5',
+                            model=thread.model or 'gpt-5-mini',
                             input=[{"role": "user", "content": (
                                 "Genera el resumen clínico completo del paciente con: "
                                 "1) Historia clínica detallada basada en todas las consultas registradas. "
@@ -1823,6 +1945,7 @@ def report_sessions(request):
                             )}],
                             conversation=conv.id,
                             tools=[{"type": "file_search", "vector_store_ids": [vs_id]}],
+                            reasoning={"effort": "low"},
                         )
                         content = getattr(resp, 'output_text', None) or ''
                         if content:
@@ -1853,6 +1976,10 @@ def report_sessions(request):
 
 @login_required
 def report_sessions_pdf(request):
+    if _is_secretary(request.user):
+        messages.error(request, 'No tienes permiso para acceder a esta sección.')
+        return redirect('index')
+
     # Resolve professional and thread/patient
     prof = _get_professional(request.user)
     if not (request.user.is_staff or prof):
@@ -1915,6 +2042,8 @@ def report_sessions_pdf(request):
 
 @login_required
 def report_sessions_chat(request):
+    if _is_secretary(request.user):
+        return JsonResponse({'ok': False, 'error': 'No autorizado'}, status=403)
     if request.method != 'POST':
         return JsonResponse({'ok': False, 'error': 'Método no permitido'}, status=405)
     prof = _get_professional(request.user)
@@ -1935,19 +2064,26 @@ def report_sessions_chat(request):
     if not thread.openai_conversation_id:
         return JsonResponse({'ok': False, 'error': 'Genera un resumen primero para iniciar la conversación.'}, status=400)
 
+    # Migrate legacy/slow models to gpt-5-mini for faster responses
+    if not thread.model or thread.model in ('gpt-4o-mini', 'gpt-5'):
+        thread.model = 'gpt-5-mini'
+        thread.save(update_fields=['model'])
+
     PatientAIMessage.objects.create(thread=thread, role='user', content=question)
 
-    # Retry up to 4 times on conversation_locked (OpenAI processes one turn at a time)
-    last_error = None
+    # Retry on conversation_locked (OpenAI processes one turn at a time).
+    # A previous turn (e.g. summary generation) may still be running; wait up to ~45s.
     vs_id = thread.openai_vector_store_id or None
     tools = [{"type": "file_search", "vector_store_ids": [vs_id]}] if vs_id else []
-    for attempt in range(4):
+    max_attempts = 8
+    for attempt in range(max_attempts):
         try:
             resp = client.responses.create(
-                model=thread.model or 'gpt-5',
+                model=thread.model or 'gpt-5-mini',
                 input=[{"role": "user", "content": question}],
                 conversation=thread.openai_conversation_id,
                 tools=tools,
+                reasoning={"effort": "low"},
             )
             answer = getattr(resp, 'output_text', None) or ''
             # Log token usage via Django logger (visible in dev console + log files)
@@ -1960,10 +2096,10 @@ def report_sessions_chat(request):
             PatientAIMessage.objects.create(thread=thread, role='assistant', content=answer)
             return JsonResponse({'ok': True, 'answer': answer})
         except Exception as e:
-            last_error = e
             err_str = str(e)
             if 'conversation_locked' in err_str:
-                time.sleep(2 ** attempt)  # 1s, 2s, 4s, 8s
+                if attempt < max_attempts - 1:
+                    time.sleep(min(2 ** attempt, 8))  # 1, 2, 4, 8, 8, 8, 8 (~39s total)
                 continue
             # Any other error — fail immediately
             return JsonResponse({'ok': False, 'error': f'Error IA: {e}'}, status=500)
@@ -1973,6 +2109,9 @@ def report_sessions_chat(request):
 
 @login_required
 def patient_history_manager(request, patient_id):
+    if _is_secretary(request.user):
+        messages.error(request, 'No tienes permiso para acceder al historial de pacientes.')
+        return redirect('patients')
     prof = _get_professional(request.user)
     patient = get_object_or_404(Patient, id=patient_id)
     if not (request.user.is_staff or (prof and patient.professional_id == prof.id)):
@@ -1988,3 +2127,75 @@ def patient_history_manager(request, patient_id):
         'notes': notes,
         'attachments': atts,
     })
+
+
+@login_required
+def eeg_stats(request):
+    import json as _json
+    from django.db.models import Count, Avg
+
+    patients = Patient.objects.order_by('first_name', 'last_name')
+    selected_patient = None
+    patient_id = request.GET.get('patient_id')
+    if patient_id:
+        selected_patient = get_object_or_404(Patient, id=patient_id)
+
+    sessions_qs = EEGSession.objects.select_related('patient')
+    if selected_patient:
+        sessions_qs = sessions_qs.filter(patient=selected_patient)
+
+    sessions = list(sessions_qs.order_by('-started_at'))
+
+    # Emotion distribution
+    emotion_counts = {'POSITIVE': 0, 'NEUTRAL': 0, 'NEGATIVE': 0}
+    for s in sessions:
+        if s.dominant_emotion in emotion_counts:
+            emotion_counts[s.dominant_emotion] += 1
+
+    # Per-session band power averages (for chart)
+    session_chart_data = []
+    for s in sessions[:20]:  # last 20 sessions
+        avg = EEGReading.objects.filter(session=s).aggregate(
+            delta=Avg('delta'), theta=Avg('theta'),
+            alpha=Avg('alpha'), beta=Avg('beta'), gamma=Avg('gamma'),
+            attention=Avg('attention'), meditation=Avg('meditation'),
+        )
+        session_chart_data.append({
+            'label': s.started_at.strftime('%d/%m %H:%M'),
+            'delta': round(avg['delta'] or 0, 2),
+            'theta': round(avg['theta'] or 0, 2),
+            'alpha': round(avg['alpha'] or 0, 2),
+            'beta': round(avg['beta'] or 0, 2),
+            'gamma': round(avg['gamma'] or 0, 2),
+            'attention': round(avg['attention'] or 0, 1),
+            'meditation': round(avg['meditation'] or 0, 1),
+        })
+    session_chart_data.reverse()
+
+    total_sessions = len(sessions)
+    total_patients_with_eeg = EEGSession.objects.values('patient').distinct().count()
+
+    return render(request, 'pages/eeg_stats.html', {
+        'segment': 'eegstats',
+        'patients': patients,
+        'selected_patient': selected_patient,
+        'sessions': sessions,
+        'emotion_counts_json': _json.dumps(emotion_counts),
+        'session_chart_data_json': _json.dumps(session_chart_data),
+        'total_sessions': total_sessions,
+        'total_patients_with_eeg': total_patients_with_eeg,
+        'emotion_counts': emotion_counts,
+    })
+
+
+@login_required
+def eeg_download_installer(request):
+    from django.http import FileResponse, Http404
+    installer_path = os.path.join(settings.MEDIA_ROOT, 'downloads', 'EEGMonitor_Setup.zip')
+    if not os.path.exists(installer_path):
+        raise Http404("El instalador no está disponible aún.")
+    return FileResponse(
+        open(installer_path, 'rb'),
+        as_attachment=True,
+        filename='EEGMonitor_Setup.zip',
+    )

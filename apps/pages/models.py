@@ -46,6 +46,7 @@ class Professional(models.Model):
     ROLE_CHOICES = [
         ('psychologist', 'Psicólogo'),
         ('psychiatrist', 'Psiquiatra'),
+        ('secretary', 'Secretaria'),
     ]
 
     first_name = models.CharField(max_length=100)
@@ -288,3 +289,67 @@ class PatientAIMessage(models.Model):
 
     def __str__(self):
         return f"{self.role} msg #{self.id} on thread {self.thread_id}"
+
+
+# --- EEG Session models (written by EEGDesktopApp, read by web analytics) ---
+class EEGSession(models.Model):
+    EMOTION_CHOICES = [
+        ('POSITIVE', 'Positivo'),
+        ('NEUTRAL', 'Neutral'),
+        ('NEGATIVE', 'Negativo'),
+        ('', 'Sin datos'),
+    ]
+
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='eeg_sessions')
+    operator_name = models.CharField(max_length=200, blank=True, default='')
+    started_at = models.DateTimeField()
+    ended_at = models.DateTimeField(null=True, blank=True)
+    dominant_emotion = models.CharField(max_length=20, choices=EMOTION_CHOICES, blank=True, default='')
+    notes = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-started_at']
+        verbose_name = 'Sesión EEG'
+        verbose_name_plural = 'Sesiones EEG'
+
+    @property
+    def duration_seconds(self):
+        if self.ended_at and self.started_at:
+            return int((self.ended_at - self.started_at).total_seconds())
+        return None
+
+    @property
+    def duration_display(self):
+        secs = self.duration_seconds
+        if secs is None:
+            return None
+        minutes, seconds = divmod(secs, 60)
+        if minutes:
+            return f"{minutes} min {seconds} s"
+        return f"{seconds} s"
+
+    def __str__(self):
+        return f"EEG #{self.id} - {self.patient} ({self.started_at:%Y-%m-%d %H:%M})"
+
+
+class EEGReading(models.Model):
+    session = models.ForeignKey(EEGSession, on_delete=models.CASCADE, related_name='readings')
+    timestamp = models.DateTimeField()
+    attention = models.IntegerField(null=True, blank=True)
+    meditation = models.IntegerField(null=True, blank=True)
+    delta = models.FloatField(null=True, blank=True)
+    theta = models.FloatField(null=True, blank=True)
+    alpha = models.FloatField(null=True, blank=True)
+    beta = models.FloatField(null=True, blank=True)
+    gamma = models.FloatField(null=True, blank=True)
+    emotion_label = models.CharField(max_length=20, blank=True, default='')
+    emotion_confidence = models.FloatField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['timestamp']
+        verbose_name = 'Lectura EEG'
+        verbose_name_plural = 'Lecturas EEG'
+
+    def __str__(self):
+        return f"Reading #{self.id} @ {self.timestamp:%H:%M:%S} ({self.emotion_label})"

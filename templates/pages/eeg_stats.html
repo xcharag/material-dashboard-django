@@ -1,0 +1,312 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+{% block title %} Estadísticas EEG {% endblock %}
+
+{% block extrastyle %}
+<style>
+  .main-content { overflow-y: visible !important; min-height: 100vh; }
+  .eeg-hero {
+    border-radius: 1rem;
+    background: linear-gradient(195deg, #1a237e, #283593);
+    padding: 1.5rem 2rem 4rem;
+    position: relative; overflow: hidden;
+  }
+  .eeg-hero::after {
+    content:''; position:absolute; inset:0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+  .stat-card {
+    border-radius: 1rem;
+    padding: 1.25rem 1.5rem;
+    color: #fff;
+    position: relative; overflow: hidden;
+  }
+  .stat-card .stat-icon {
+    position: absolute; right: 1rem; top: 50%; transform: translateY(-50%);
+    font-size: 3rem; opacity: .15;
+  }
+  .stat-card .stat-value { font-size: 2rem; font-weight: 700; line-height: 1; }
+  .stat-card .stat-label { font-size: .75rem; opacity: .8; margin-top: .3rem; }
+  .emotion-badge {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: .25rem .75rem; border-radius: 2rem; font-size: .75rem; font-weight: 600;
+  }
+  .emotion-badge.POSITIVE { background: rgba(76,175,80,.15); color: #2e7d32; }
+  .emotion-badge.NEUTRAL  { background: rgba(33,150,243,.15); color: #1565c0; }
+  .emotion-badge.NEGATIVE { background: rgba(244,67,54,.15);  color: #c62828; }
+  .emotion-badge .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .emotion-badge.POSITIVE .dot { background: #4caf50; }
+  .emotion-badge.NEUTRAL  .dot { background: #2196f3; }
+  .emotion-badge.NEGATIVE .dot { background: #f44336; }
+  .section-label {
+    font-size: .68rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: #7b809a; margin-bottom: .75rem;
+  }
+  .chart-card { border-radius: 1rem; background: #fff; box-shadow: 0 4px 6px -1px rgba(0,0,0,.07); }
+  .sessions-table th { font-size: .75rem; font-weight: 600; color: #7b809a; text-transform: uppercase; letter-spacing: .06em; border: none; }
+  .sessions-table td { font-size: .85rem; vertical-align: middle; border-color: #f0f2f5; }
+  .download-card {
+    border-radius: 1rem;
+    background: linear-gradient(135deg, #0d47a1 0%, #1565c0 100%);
+    color: #fff; padding: 2rem;
+  }
+</style>
+{% endblock extrastyle %}
+
+{% block content %}
+<div class="container-fluid py-2">
+
+  <!-- Hero header -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="eeg-hero">
+        <div class="position-relative z-1">
+          <p class="text-white text-sm mb-1 opacity-8">
+            <i class="material-symbols-rounded align-middle" style="font-size:1rem">analytics</i>
+            Reportes
+          </p>
+          <h3 class="text-white mb-0 fw-bold">Estadísticas EEG</h3>
+          <p class="text-white opacity-8 mb-0" style="font-size:.85rem">
+            Análisis de sesiones EEG registradas con el dispositivo Neurosky Mindwave Mobile 2
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary stat cards (overlapping hero) -->
+  <div class="row mt-n4 mb-4">
+    <div class="col-xl-4 col-md-6 mb-3">
+      <div class="card stat-card" style="background: linear-gradient(195deg,#42424a,#191919);">
+        <span class="stat-icon material-symbols-rounded">sensors</span>
+        <div class="stat-value">{{ total_sessions }}</div>
+        <div class="stat-label">Sesiones EEG registradas</div>
+      </div>
+    </div>
+    <div class="col-xl-4 col-md-6 mb-3">
+      <div class="card stat-card" style="background: linear-gradient(195deg,#1a237e,#283593);">
+        <span class="stat-icon material-symbols-rounded">group</span>
+        <div class="stat-value">{{ total_patients_with_eeg }}</div>
+        <div class="stat-label">Pacientes con datos EEG</div>
+      </div>
+    </div>
+    <div class="col-xl-4 col-md-6 mb-3">
+      <div class="card stat-card" style="background: linear-gradient(195deg,#1b5e20,#2e7d32);">
+        <span class="stat-icon material-symbols-rounded">psychology</span>
+        <div class="stat-value">
+          {% if emotion_counts.POSITIVE >= emotion_counts.NEUTRAL and emotion_counts.POSITIVE >= emotion_counts.NEGATIVE %}
+            Positivo
+          {% elif emotion_counts.NEUTRAL >= emotion_counts.NEGATIVE %}
+            Neutral
+          {% else %}
+            Negativo
+          {% endif %}
+        </div>
+        <div class="stat-label">Emoción dominante global</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Patient filter -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="chart-card p-3">
+        <form method="get" class="d-flex align-items-center gap-3 flex-wrap">
+          <p class="section-label mb-0">Filtrar por paciente</p>
+          <select name="patient_id" class="form-select form-select-sm" style="max-width:280px;">
+            <option value="">— Todos los pacientes —</option>
+            {% for p in patients %}
+              <option value="{{ p.id }}" {% if selected_patient.id == p.id %}selected{% endif %}>
+                {{ p.first_name }} {{ p.last_name }}
+              </option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn btn-sm bg-gradient-dark text-white mb-0">
+            <i class="material-symbols-rounded align-middle me-1" style="font-size:1rem">filter_list</i>
+            Aplicar
+          </button>
+          {% if selected_patient %}
+          <a href="{% url 'eeg_stats' %}" class="btn btn-sm btn-outline-secondary mb-0">Limpiar</a>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts row -->
+  <div class="row mb-4">
+    <!-- Emotion distribution donut -->
+    <div class="col-xl-4 col-lg-5 mb-4">
+      <div class="chart-card p-3 h-100">
+        <p class="section-label">Distribución de emociones</p>
+        <div id="chartEmotion" style="min-height:260px;"></div>
+      </div>
+    </div>
+    <!-- Band power over time -->
+    <div class="col-xl-8 col-lg-7 mb-4">
+      <div class="chart-card p-3 h-100">
+        <p class="section-label">Potencia de bandas por sesión (promedio)</p>
+        <div id="chartBands" style="min-height:260px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Attention & Meditation over time -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="chart-card p-3">
+        <p class="section-label">Atención y Meditación por sesión</p>
+        <div id="chartAttMed" style="min-height:220px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sessions table -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="chart-card p-3">
+        <p class="section-label">Historial de sesiones</p>
+        {% if sessions %}
+        <div class="table-responsive">
+          <table class="table sessions-table align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Paciente</th>
+                <th>Operador</th>
+                <th>Duración</th>
+                <th>Emoción dominante</th>
+                <th>Lecturas</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in sessions %}
+              <tr>
+                <td>{{ s.started_at|date:"d/m/Y H:i" }}</td>
+                <td>
+                  <span class="fw-semibold" style="color:#344767;">
+                    {{ s.patient.first_name }} {{ s.patient.last_name }}
+                  </span>
+                </td>
+                <td>{{ s.operator_name|default:"—" }}</td>
+                <td>{{ s.duration_display|default:"—" }}</td>
+                <td>
+                  {% if s.dominant_emotion %}
+                    <span class="emotion-badge {{ s.dominant_emotion }}">
+                      <span class="dot"></span>
+                      {{ s.get_dominant_emotion_display }}
+                    </span>
+                  {% else %}—{% endif %}
+                </td>
+                <td>
+                  <span class="badge bg-gradient-secondary">{{ s.readings.count }}</span>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+          <i class="material-symbols-rounded d-block mb-2" style="font-size:3rem;opacity:.3;">sensors_off</i>
+          <p class="mb-0">No hay sesiones EEG registradas aún.</p>
+          <p class="mb-0" style="font-size:.8rem;">Descarga e instala la aplicación de escritorio para comenzar.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Download installer card -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="download-card d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div>
+          <h5 class="text-white mb-1 fw-bold">
+            <i class="material-symbols-rounded align-middle me-2">monitor_heart</i>
+            Aplicación EEG Desktop
+          </h5>
+          <p class="text-white opacity-8 mb-0" style="font-size:.85rem;">
+            Conecta el dispositivo Neurosky Mindwave Mobile 2, registra sesiones EEG y detecta emociones en tiempo real.
+            Los datos se sincronizan automáticamente con esta plataforma.
+          </p>
+        </div>
+        <a href="{% url 'eeg_download_installer' %}"
+           class="btn btn-white text-primary mb-0 fw-bold px-4"
+           style="white-space:nowrap;">
+          <i class="material-symbols-rounded align-middle me-1">download</i>
+          Descargar Instalador
+        </a>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script src="{% static 'assets/js/plugins/apexcharts.min.js' %}"></script>
+<script>
+(function() {
+  const emotionCounts = {{ emotion_counts_json|safe }};
+  const sessionData   = {{ session_chart_data_json|safe }};
+
+  // ── Emotion donut ──────────────────────────────────────────────
+  new ApexCharts(document.getElementById('chartEmotion'), {
+    series: [emotionCounts.POSITIVE, emotionCounts.NEUTRAL, emotionCounts.NEGATIVE],
+    chart: { type: 'donut', height: 260, fontFamily: 'inherit' },
+    labels: ['Positivo', 'Neutral', 'Negativo'],
+    colors: ['#4caf50', '#2196f3', '#f44336'],
+    legend: { position: 'bottom', fontSize: '13px' },
+    dataLabels: { enabled: true, formatter: (val) => Math.round(val) + '%' },
+    plotOptions: { pie: { donut: { size: '65%' } } },
+    tooltip: { y: { formatter: (v) => v + ' sesiones' } },
+  }).render();
+
+  // ── Band power multi-line ──────────────────────────────────────
+  if (sessionData.length > 0) {
+    const labels = sessionData.map(d => d.label);
+    new ApexCharts(document.getElementById('chartBands'), {
+      series: [
+        { name: 'Delta', data: sessionData.map(d => d.delta) },
+        { name: 'Theta', data: sessionData.map(d => d.theta) },
+        { name: 'Alpha', data: sessionData.map(d => d.alpha) },
+        { name: 'Beta',  data: sessionData.map(d => d.beta)  },
+        { name: 'Gamma', data: sessionData.map(d => d.gamma) },
+      ],
+      chart: { type: 'line', height: 260, fontFamily: 'inherit', toolbar: { show: false } },
+      xaxis: { categories: labels, labels: { style: { fontSize: '11px' } } },
+      colors: ['#9c27b0','#2196f3','#4caf50','#ff9800','#f44336'],
+      stroke: { width: 2, curve: 'smooth' },
+      legend: { position: 'top' },
+      tooltip: { shared: true, intersect: false },
+    }).render();
+  } else {
+    document.getElementById('chartBands').innerHTML =
+      '<div class="text-center text-muted py-5">Sin datos suficientes</div>';
+  }
+
+  // ── Attention & Meditation ─────────────────────────────────────
+  if (sessionData.length > 0) {
+    const labels = sessionData.map(d => d.label);
+    new ApexCharts(document.getElementById('chartAttMed'), {
+      series: [
+        { name: 'Atención',   data: sessionData.map(d => d.attention)  },
+        { name: 'Meditación', data: sessionData.map(d => d.meditation) },
+      ],
+      chart: { type: 'area', height: 220, fontFamily: 'inherit', toolbar: { show: false } },
+      xaxis: { categories: labels, labels: { style: { fontSize: '11px' } } },
+      yaxis: { min: 0, max: 100 },
+      colors: ['#1a73e8','#0288d1'],
+      fill: { type: 'gradient', gradient: { opacityFrom: .3, opacityTo: .05 } },
+      stroke: { width: 2, curve: 'smooth' },
+      legend: { position: 'top' },
+      tooltip: { shared: true, intersect: false },
+    }).render();
+  } else {
+    document.getElementById('chartAttMed').innerHTML =
+      '<div class="text-center text-muted py-5">Sin datos suficientes</div>';
+  }
+})();
+</script>
+{% endblock extra_js %}

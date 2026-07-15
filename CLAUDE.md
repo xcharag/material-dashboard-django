@@ -90,7 +90,7 @@ The `/report/sessions/` flow:
 4. Chat uses the OpenAI Responses API with server-side conversation history; messages are also persisted locally in `PatientAIMessage`.
 5. PDF export available via xhtml2pdf.
 
-**Model default:** `gpt-4o-mini`. Both `openai` (>=1.47.0) and `anthropic` (0.34.2) SDKs are installed, but only OpenAI is active in views.
+**Model default:** `gpt-5-mini` with `reasoning={"effort": "low"}` (views migrate legacy `gpt-4o-mini`/`gpt-5` threads automatically). Both `openai` (>=1.47.0) and `anthropic` (0.34.2) SDKs are installed, but only OpenAI is active in views.
 
 To reset AI state for a patient:
 ```python

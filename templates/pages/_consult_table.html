@@ -57,24 +57,46 @@
         </td>
         <!-- Acción -->
         <td class="py-3 pe-4 text-end">
-          {% if c.status == 'pending' %}
-          <a href="{% url 'start_session' c.id %}"
-             class="btn btn-sm bg-gradient-success d-inline-flex align-items-center gap-1">
-            <i class="material-symbols-rounded" style="font-size:.85rem">play_arrow</i>Iniciar
-          </a>
-          {% elif c.status == 'attended' %}
-          <a href="{% url 'start_session' c.id %}"
-             class="btn btn-sm bg-gradient-info d-inline-flex align-items-center gap-1">
-            <i class="material-symbols-rounded" style="font-size:.85rem">login</i>Continuar
-          </a>
-          {% elif c.status == 'completed' %}
-          <a href="{% url 'start_session' c.id %}"
-             class="btn btn-sm bg-gradient-secondary d-inline-flex align-items-center gap-1">
-            <i class="material-symbols-rounded" style="font-size:.85rem">history_edu</i>Registrar
-          </a>
-          {% else %}
-          <span class="text-xs text-secondary">—</span>
-          {% endif %}
+          <div class="d-inline-flex align-items-center gap-1">
+            {% if c.status == 'pending' %}
+            <a href="{% url 'start_session' c.id %}"
+               class="btn btn-sm bg-gradient-success d-inline-flex align-items-center gap-1">
+              <i class="material-symbols-rounded" style="font-size:.85rem">play_arrow</i>Iniciar
+            </a>
+            {% elif c.status == 'attended' %}
+            <a href="{% url 'start_session' c.id %}"
+               class="btn btn-sm bg-gradient-info d-inline-flex align-items-center gap-1">
+              <i class="material-symbols-rounded" style="font-size:.85rem">login</i>Continuar
+            </a>
+            {% elif c.status == 'completed' %}
+            <a href="{% url 'start_session' c.id %}"
+               class="btn btn-sm bg-gradient-secondary d-inline-flex align-items-center gap-1">
+              <i class="material-symbols-rounded" style="font-size:.85rem">history_edu</i>Registrar
+            </a>
+            {% else %}
+            <span class="text-xs text-secondary">—</span>
+            {% endif %}
+            {% if c.status != 'cancelled' %}
+            <button type="button"
+                    class="btn btn-sm btn-light border edit-cita-btn"
+                    title="Editar cita"
+                    data-id="{{ c.id }}"
+                    data-patient-id="{{ c.patient.id }}"
+                    data-patient-name="{{ c.patient.first_name }} {{ c.patient.last_name }}"
+                    data-prof-id="{{ c.professional.id }}"
+                    data-prof-name="{{ c.professional.first_name }} {{ c.professional.last_name }}"
+                    data-prof-role="{{ c.professional.get_role_display }}"
+                    data-prof-initials="{{ c.professional.first_name|slice:':1' }}{{ c.professional.last_name|slice:':1' }}"
+                    data-consultorio-id="{{ c.consultorio_fk.id|default:'' }}"
+                    data-consultorio-name="{{ c.consultorio_fk.name|default:c.consultory }}"
+                    data-date="{{ c.date|date:'Y-m-d' }}"
+                    data-time="{{ c.time|date:'H:i' }}"
+                    data-duration="{{ c.duration }}"
+                    data-notes="{{ c.notes|default:'' }}">
+              <i class="material-symbols-rounded" style="font-size:.85rem">edit</i>
+            </button>
+            {% endif %}
+          </div>
         </td>
       </tr>
       {% empty %}
