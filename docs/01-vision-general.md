@@ -53,7 +53,7 @@ dispositivo. La base de datos compartida es el punto de unión entre ambos mundo
 
 Cada documento de esta carpeta explica un subsistema y, cuando corresponde, el
 concepto técnico de fondo (qué es una CNN, qué es RAG, cómo funciona el protocolo
-ThinkGear, etc.), de modo que sirva tanto como referencia de implementación como
-material de apoyo para responder preguntas técnicas durante la defensa.
+ThinkGear, etc.), de modo que sirva como referencia de implementación y de
+consulta técnica del proyecto.
 
 Continúa en → [02 · Arquitectura Global](02-arquitectura.md).

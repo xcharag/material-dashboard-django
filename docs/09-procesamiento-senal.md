@@ -94,8 +94,8 @@ del modelo.
 Aunque el vector tiene el tamaño correcto, su **distribución estadística difiere** de
 la del dataset de entrenamiento (Muse, 4 canales reales). Por eso las predicciones en
 vivo se marcan como **"estimado"** en la interfaz: son una estimación *best-effort*,
-no una clasificación de laboratorio. Este es un punto honesto y relevante para la
-defensa de tesis. Detalle en [doc 10](10-modelo-cnn-emociones.md) y
+no una clasificación de laboratorio. Esta es una limitación conocida y documentada
+del sistema. Detalle en [doc 10](10-modelo-cnn-emociones.md) y
 [doc 11](11-integracion-datos.md).
 
 Continúa en → [10 · Modelo CNN de Emociones](10-modelo-cnn-emociones.md).

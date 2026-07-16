@@ -97,7 +97,8 @@ Estos valores se guardan en `models/metrics.json` y se muestran en el dashboard 
 > **Nota metodológica:** la primera versión usó `GlobalAveragePooling` +
 > `BatchNormalization` y sufrió sobreajuste severo (entrenamiento 95 %, validación
 > 40 %). Cambiar a `Flatten` + `SpatialDropout1D` y quitar `BatchNorm` resolvió la
-> generalización. Es un buen ejemplo de iteración de arquitectura para la defensa.
+> generalización. Es un ejemplo de cómo se iteró la arquitectura del modelo
+> durante el desarrollo.
 
 ## Artefactos generados
 

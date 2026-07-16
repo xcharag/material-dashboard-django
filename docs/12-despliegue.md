@@ -102,8 +102,8 @@ mkdocs gh-deploy   # publica en GitHub Pages (rama gh-pages)
 ```
 
 Con `gh-deploy`, la documentación queda accesible en una URL pública
-(`https://<usuario>.github.io/<repo>/`) desde cualquier laptop durante la defensa,
-sin abrir el código.
+(`https://<usuario>.github.io/<repo>/`) desde cualquier dispositivo, sin
+necesidad de clonar el repositorio.
 
 ### Alternativas de hosting
 

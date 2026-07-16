@@ -1,8 +1,7 @@
 # Documentación Técnica — Proyecto CereDB
 
 Documentación técnica completa del sistema de gestión clínica **CereDB** y su
-aplicación de escritorio de monitoreo EEG. Este material está pensado como
-referencia rápida durante la defensa de tesis: cada documento explica un
+aplicación de escritorio de monitoreo EEG. Cada documento explica un
 componente del sistema junto con los conceptos técnicos que lo sustentan.
 
 ## ¿Qué es el proyecto?
@@ -40,6 +39,7 @@ PostgreSQL:
 ### Operación
 - [12 · Despliegue](12-despliegue.md) — cómo se ejecuta y publica cada aplicación.
 - [13 · Glosario Técnico](13-glosario.md) — definiciones de todos los términos técnicos usados.
+- [14 · Seguridad](14-seguridad.md) — autenticación, roles, protecciones de Django y consultas parametrizadas en la app de escritorio.
 
 ## Cómo publicar esta documentación
 

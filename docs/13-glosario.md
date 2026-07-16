@@ -1,7 +1,7 @@
 # 13 · Glosario Técnico
 
-Definiciones breves de los términos usados en esta documentación, pensadas para
-responder preguntas durante la defensa.
+Definiciones breves de los términos usados en esta documentación, para consulta
+rápida.
 
 ## Inteligencia artificial y aprendizaje automático
 
@@ -134,4 +134,4 @@ el historial de conversación del lado del servidor.
 **Token.** Unidad mínima de texto (parte de palabra) que procesan los modelos de
 lenguaje; determina costo y límites de contexto.
 
-← Volver al [índice](README.md).
+Continúa en → [14 · Seguridad](14-seguridad.md).
