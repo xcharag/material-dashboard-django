@@ -1145,7 +1145,7 @@ asociada a estados mentales:</p>
 <p>Se derivan del análisis de las bandas y sirven como indicadores rápidos del estado
 del usuario.</p>
 <h2 id="el-protocolo-thinkgear-parsing">El protocolo ThinkGear (parsing)<a class="headerlink" href="#el-protocolo-thinkgear-parsing" title="Permanent link">&para;</a></h2>
-<p>El dispositivo envía <strong>paquetes binarios</strong>. <code>backend/eeg_connector.py</code> los decodifica
+<p>El dispositivo envía <strong>paquetes binarios</strong>. <code>backend/infrastructure/eeg_connector.py</code> los decodifica
 en un hilo en segundo plano. La estructura de un paquete es:</p>
 <div class="highlight"><pre><span></span><code>┌──────┬──────┬────────┬───────────────────────┬──────────┐
 │ 0xAA │ 0xAA │ LENGTH │        PAYLOAD        │ CHECKSUM │

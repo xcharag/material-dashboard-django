@@ -1245,12 +1245,12 @@ directo). Los servicios de IA de OpenAI son consumidos únicamente por la web.</
 <code>apps/finance/models.py</code>. Las migraciones definen el esquema de tablas
 (<code>pages_patient</code>, <code>pages_consultation</code>, <code>pages_eegsession</code>, etc.).</p>
 <h3 id="escritorio-base-de-datos">Escritorio ↔ Base de datos<a class="headerlink" href="#escritorio-base-de-datos" title="Permanent link">&para;</a></h3>
-<p><code>backend/db_client.py</code> abre conexiones <code>psycopg2</code> y ejecuta <code>INSERT</code>/<code>UPDATE</code>/<code>SELECT</code>
+<p><code>backend/infrastructure/db_client.py</code> abre conexiones <code>psycopg2</code> y ejecuta <code>INSERT</code>/<code>UPDATE</code>/<code>SELECT</code>
 directamente sobre las tablas que Django creó. <strong>No</strong> usa el ORM; usa los nombres
 de tabla generados por Django (<code>pages_eegsession</code>, <code>pages_eegreading</code>,
 <code>pages_patient</code>). Esto lo hace un cliente ligero e independiente de Django.</p>
 <h3 id="escritorio-dispositivo-neurosky">Escritorio ↔ Dispositivo Neurosky<a class="headerlink" href="#escritorio-dispositivo-neurosky" title="Permanent link">&para;</a></h3>
-<p><code>backend/eeg_connector.py</code> abre el puerto COM Bluetooth a 57600 baudios y decodifica
+<p><code>backend/infrastructure/eeg_connector.py</code> abre el puerto COM Bluetooth a 57600 baudios y decodifica
 el flujo binario del protocolo ThinkGear en un hilo en segundo plano. Ver
 <a href="../08-neurosky-thinkgear/">08 · Neurosky y el Protocolo ThinkGear</a>.</p>
 <h3 id="web-openai">Web ↔ OpenAI<a class="headerlink" href="#web-openai" title="Permanent link">&para;</a></h3>
@@ -1259,7 +1259,7 @@ API + Vector Stores (índice RAG) y la Responses API con conversaciones del lado
 servidor. Ver <a href="../06-ia-analisis-pacientes/">06 · IA de Análisis de Pacientes</a>.</p>
 <h3 id="frontend-web-pywebview-backend-python">Frontend web (pywebview) ↔ Backend Python<a class="headerlink" href="#frontend-web-pywebview-backend-python" title="Permanent link">&para;</a></h3>
 <p>En la aplicación de escritorio, el HTML/JS llama funciones de Python a través del
-puente <code>window.pywebview.api.*</code>. La clase <code>Api</code> (<code>backend/api.py</code>) expone métodos
+puente <code>window.pywebview.api.*</code>. La clase <code>Api</code> (<code>backend/presentation/api.py</code>) expone métodos
 como <code>get_realtime_data()</code>, <code>connect_device()</code>, <code>start_session()</code> que el JavaScript
 invoca de forma asíncrona.</p>
 <h2 id="repositorios">Repositorios<a class="headerlink" href="#repositorios" title="Permanent link">&para;</a></h2>

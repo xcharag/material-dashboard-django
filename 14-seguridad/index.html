@@ -1200,7 +1200,7 @@ PostgreSQL con <code>psycopg2</code>).</p>
 </ul>
 <h2 id="aplicacion-de-escritorio-sin-orm">Aplicación de escritorio (sin ORM)<a class="headerlink" href="#aplicacion-de-escritorio-sin-orm" title="Permanent link">&para;</a></h2>
 <p>La app de escritorio <strong>no usa el ORM de Django</strong>: habla SQL directo contra
-PostgreSQL con <code>psycopg2</code> (<code>backend/db_client.py</code>). Esto plantea una pregunta
+PostgreSQL con <code>psycopg2</code> (<code>backend/infrastructure/db_client.py</code>). Esto plantea una pregunta
 razonable: ¿se pierde la seguridad que ofrece el ORM?</p>
 <h3 id="que-seguridad-da-realmente-el-orm">¿Qué seguridad da realmente el ORM?<a class="headerlink" href="#que-seguridad-da-realmente-el-orm" title="Permanent link">&para;</a></h3>
 <p>La protección de seguridad central que aporta un ORM es la <strong>parametrización
@@ -1230,8 +1230,8 @@ solo que de forma explícita en lugar de automática.</p>
   (creado a partir de <code>settings.example.json</code>), no incrustadas en el código
   distribuido.</li>
 <li>La conexión usa <code>connect_timeout</code> y las escrituras corren en un hilo
-  separado: un fallo de red no corta la sesión de captura y cada sesión se
-  respalda localmente como JSON.</li>
+  trabajador separado: un fallo de red no corta la sesión de captura y cada
+  sesión se respalda localmente como JSON.</li>
 </ul>
 <h3 id="es-mala-practica-no-usar-el-orm-aqui">¿Es mala práctica no usar el ORM aquí?<a class="headerlink" href="#es-mala-practica-no-usar-el-orm-aqui" title="Permanent link">&para;</a></h3>
 <p>Es un <strong>compromiso deliberado</strong>, no un descuido:</p>

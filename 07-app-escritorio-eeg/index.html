@@ -689,10 +689,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#arquitectura-pywebview" class="md-nav__link">
+  <a href="#arquitectura-pywebview-en-capas" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Arquitectura: pywebview
+        Arquitectura: pywebview en capas
       
     </span>
   </a>
@@ -1063,9 +1063,12 @@ paciente con una red neuronal y guarda la sesión en la base de datos compartida
 <li>El navegador <strong>no puede</strong> abrir puertos serie/Bluetooth por seguridad.</li>
 <li>La inferencia con TensorFlow se ejecuta <strong>localmente</strong> en tiempo real.</li>
 </ul>
-<h2 id="arquitectura-pywebview">Arquitectura: pywebview<a class="headerlink" href="#arquitectura-pywebview" title="Permanent link">&para;</a></h2>
+<h2 id="arquitectura-pywebview-en-capas">Arquitectura: pywebview en capas<a class="headerlink" href="#arquitectura-pywebview-en-capas" title="Permanent link">&para;</a></h2>
 <p><code>pywebview</code> muestra una interfaz <strong>HTML/CSS/JS</strong> dentro de una ventana nativa, pero
-la lógica corre en <strong>Python</strong>. El puente entre ambos mundos es el objeto <code>Api</code>:</p>
+la lógica corre en <strong>Python</strong>. El puente entre ambos mundos es el objeto <code>Api</code>.</p>
+<p>El backend está organizado en <strong>capas</strong> (ver
+<a href="../15-patrones-diseno/">15 · Patrones de Diseño</a>): cada capa tiene una única
+responsabilidad y solo depende de la de abajo.</p>
 <div class="highlight"><pre><span></span><code>┌──────────────────────────────────────────────────────────┐
 │  Ventana pywebview                                         │
 │  ┌────────────────────────┐   window.pywebview.api.*      │
@@ -1074,78 +1077,86 @@ la lógica corre en <strong>Python</strong>. El puente entre ambos mundos es el 
 │  │ configuración           │ ◄─────────────────────────── │
 │  └────────────────────────┘      (respuestas JSON)        │
 │                                                            │
+│  Backend (Python) — organizado en capas:                  │
 │  ┌────────────────────────────────────────────────────┐  │
-│  │ Backend (Python) — clase Api (backend/api.py)      │  │
-│  │  • EEGConnector      (lectura Neurosky)            │  │
-│  │  • feature_extractor (EEG → 2548 features)         │  │
-│  │  • EmotionPredictor  (CNN + heurística)            │  │
-│  │  • SessionManager    (grabación de sesiones)       │  │
-│  │  • db_client         (PostgreSQL directo)          │  │
+│  │ presentation   → clase Api (puente con el frontend) │  │
+│  │ application    → SessionManager (grabar sesión)     │  │
+│  │ domain         → predictor (CNN/heurística),        │  │
+│  │                  feature_extractor                  │  │
+│  │ infrastructure → EEGConnector, db_client            │  │
+│  │ common         → Observable (publicación/suscrip.)  │  │
 │  └────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────┘
 </code></pre></div>
-<p>El punto de entrada es <code>main.py</code>, que crea la ventana y le inyecta la instancia de
+<p>El punto de entrada es <code>main.py</code>, que crea la ventana e inyecta la instancia de
 <code>Api</code> como <code>js_api</code>.</p>
 <h2 id="componentes-del-backend">Componentes del backend<a class="headerlink" href="#componentes-del-backend" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Archivo</th>
+<th>Capa / Archivo</th>
 <th>Responsabilidad</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>backend/api.py</code></td>
-<td>Clase <code>Api</code>: expone métodos al frontend (<code>get_realtime_data</code>, <code>connect_device</code>, <code>start_session</code>, <code>stop_session</code>, <code>get_model_info</code>, <code>get_diagnostics</code>, …). Orquesta todo.</td>
+<td><code>presentation/api.py</code></td>
+<td>Clase <code>Api</code>: expone métodos al frontend (<code>get_realtime_data</code>, <code>connect_device</code>, <code>start_session</code>, <code>stop_session</code>, <code>get_model_info</code>, <code>get_diagnostics</code>, …) y conecta las capas de abajo.</td>
 </tr>
 <tr>
-<td><code>backend/eeg_connector.py</code></td>
-<td>Abre el puerto COM y decodifica el protocolo ThinkGear en un hilo. Ver <a href="../08-neurosky-thinkgear/">doc 08</a>.</td>
+<td><code>application/session_manager.py</code></td>
+<td>Controla el ciclo de vida de una grabación y persiste lecturas con un único hilo trabajador. Ver <a href="../11-integracion-datos/">doc 11</a>.</td>
 </tr>
 <tr>
-<td><code>backend/feature_extractor.py</code></td>
+<td><code>domain/predictor.py</code></td>
+<td>Estrategias de emoción: <code>CNNPredictor</code> (<code>.h5</code> + scaler) y <code>HeuristicPredictor</code>, con la interfaz común <code>Predictor</code>. Ver <a href="../10-modelo-cnn-emociones/">doc 10</a>.</td>
+</tr>
+<tr>
+<td><code>domain/feature_extractor.py</code></td>
 <td>Convierte el EEG crudo + potencias de banda en un vector de 2548 características. Ver <a href="../09-procesamiento-senal/">doc 09</a>.</td>
 </tr>
 <tr>
-<td><code>backend/emotion_predictor.py</code></td>
-<td>Carga la CNN (<code>.h5</code>) + el scaler y ejecuta la inferencia. Tiene una heurística de respaldo. Ver <a href="../10-modelo-cnn-emociones/">doc 10</a>.</td>
+<td><code>infrastructure/eeg_connector.py</code></td>
+<td>Abre el puerto COM y decodifica el protocolo ThinkGear en un hilo; <strong>notifica</strong> cada cuadro a sus suscriptores. Ver <a href="../08-neurosky-thinkgear/">doc 08</a>.</td>
 </tr>
 <tr>
-<td><code>backend/session_manager.py</code></td>
-<td>Controla el ciclo de vida de una grabación y persiste lecturas. Ver <a href="../11-integracion-datos/">doc 11</a>.</td>
-</tr>
-<tr>
-<td><code>backend/db_client.py</code></td>
+<td><code>infrastructure/db_client.py</code></td>
 <td>Conexión <code>psycopg2</code> directa a <code>ceredb</code>.</td>
+</tr>
+<tr>
+<td><code>common/observer.py</code></td>
+<td>Utilidad <code>Observable</code> (patrón Observer) usada por el conector.</td>
 </tr>
 </tbody>
 </table>
 <h2 id="el-bucle-en-tiempo-real">El bucle en tiempo real<a class="headerlink" href="#el-bucle-en-tiempo-real" title="Permanent link">&para;</a></h2>
-<p>El frontend hace <em>polling</em> cada ~200 ms llamando a <code>get_realtime_data()</code>. En cada
-llamada, el backend:</p>
+<p>Hay dos flujos que conviene distinguir: el <em>dibujo</em> de la interfaz (por
+<em>polling</em>) y el <em>guardado</em> de lecturas (por notificación).</p>
+<p><strong>Dibujo (pull).</strong> El frontend hace <em>polling</em> cada ~200 ms llamando a
+<code>get_realtime_data()</code>. En cada llamada, el backend:</p>
 <ol>
 <li>Toma el último paquete parseado del dispositivo (<code>get_latest()</code>) y el buffer de
    señal cruda (<code>raw_buffer</code>).</li>
 <li>Calcula las potencias de banda para mostrar (delta, theta, alpha, beta, gamma).</li>
-<li>Si hay suficiente señal cruda (≥ 64 muestras):</li>
-<li>Extrae el vector de características.</li>
-<li>Ejecuta la CNN (<code>EmotionPredictor.predict</code>) → emoción + confianza.</li>
-<li>Si el modelo aún está cargando, usa la <strong>heurística</strong> de respaldo.</li>
-<li>Si hay una sesión activa, guarda la lectura (en un hilo, para no bloquear).</li>
-<li>Devuelve al frontend todo lo necesario para pintar: forma de onda, potencias,
-   emoción, atención/meditación, estado de la sesión y <strong>diagnóstico de conexión</strong>.</li>
+<li>Si hay suficiente señal cruda (≥ 64 muestras), pide una predicción a la
+   estrategia activa. La elección CNN/heurística está detrás de la interfaz común
+   <code>Predictor</code>, así que aquí no hay condicional:</li>
 </ol>
-<div class="highlight"><pre><span></span><code><span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">raw_buf</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">64</span><span class="p">:</span>
-    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_predictor</span><span class="p">:</span>                        <span class="c1"># CNN cargada</span>
-        <span class="n">feat</span> <span class="o">=</span> <span class="n">extract_features</span><span class="p">(</span><span class="n">raw_buf</span><span class="p">,</span> <span class="n">pkt</span><span class="p">)</span>
-        <span class="n">emotion</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_predictor</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">feat</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>                                      <span class="c1"># aún cargando TensorFlow</span>
-        <span class="n">emotion</span> <span class="o">=</span> <span class="n">EmotionPredictor</span><span class="o">.</span><span class="n">heuristic</span><span class="p">(</span><span class="n">pkt</span><span class="p">,</span> <span class="n">att</span><span class="p">,</span> <span class="n">med</span><span class="p">)</span>
+<p><div class="highlight"><pre><span></span><code><span class="bp">self</span><span class="o">.</span><span class="n">_last_emotion</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_predictor</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">raw_buf</span><span class="p">,</span> <span class="n">pkt</span><span class="p">)</span>
 </code></pre></div>
+4. Devuelve al frontend todo lo necesario para pintar: forma de onda, potencias,
+   emoción, atención/meditación, estado de la sesión y <strong>diagnóstico de conexión</strong>.</p>
+<p><strong>Guardado (push / Observer).</strong> El guardado ya no depende del <em>polling</em>.
+<code>EEGConnector</code> <strong>notifica</strong> cada cuadro completo a sus suscriptores; <code>Api</code> está
+suscrito y, si hay una sesión activa, arma la lectura y se la pasa a
+<code>SessionManager</code>, que la encola. Un <strong>único hilo trabajador</strong> consume esa cola y
+escribe en la base de datos. Así el dato se guarda en cuanto existe y desaparecen
+los "hilos por lectura" que antes se creaban en cada tic. Ver
+<a href="../15-patrones-diseno/">15 · Patrones de Diseño</a>.</p>
 <h2 id="carga-del-modelo-en-segundo-plano">Carga del modelo en segundo plano<a class="headerlink" href="#carga-del-modelo-en-segundo-plano" title="Permanent link">&para;</a></h2>
-<p>TensorFlow tarda ~30 s en importarse. Para que la ventana abra al instante, el
-modelo se carga en un <strong>hilo daemon</strong> (<code>threading.Thread(target=self._load_model)</code>).
+<p>TensorFlow tarda ~30 s en importarse. Para que la ventana abra al instante, la app
+arranca con <code>HeuristicPredictor</code> y una fábrica (<code>create_predictor</code>) carga la CNN en
+un <strong>hilo daemon</strong>; al terminar, cambia la estrategia activa a <code>CNNPredictor</code>.
 Mientras tanto, la heurística cubre las predicciones.</p>
 <h2 id="interfaz-frontend">Interfaz (frontend)<a class="headerlink" href="#interfaz-frontend" title="Permanent link">&para;</a></h2>
 <table>

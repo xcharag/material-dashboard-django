@@ -1255,7 +1255,7 @@ durante el desarrollo.</p>
 </tbody>
 </table>
 <h2 id="inferencia-en-tiempo-real">Inferencia en tiempo real<a class="headerlink" href="#inferencia-en-tiempo-real" title="Permanent link">&para;</a></h2>
-<p><code>backend/emotion_predictor.py</code>:</p>
+<p><code>CNNPredictor</code> (en <code>backend/domain/predictor.py</code>):</p>
 <ol>
 <li>Recibe el vector de 2548 características.</li>
 <li>Lo escala con <code>scaler.pkl</code>.</li>
@@ -1267,11 +1267,13 @@ durante el desarrollo.</p>
 (1 canal) y difiere de los datos de entrenamiento (Muse, 4 canales); por eso la UI
 añade "estimado" a la confianza.</p>
 <h2 id="heuristica-de-respaldo">Heurística de respaldo<a class="headerlink" href="#heuristica-de-respaldo" title="Permanent link">&para;</a></h2>
-<p>Mientras TensorFlow carga (~30 s), se usa <code>EmotionPredictor.heuristic()</code>: una regla
-simple basada en la razón entre potencias alpha+beta y delta+theta y los índices
-eSense de atención/meditación. Devuelve la misma estructura pero con
-<code>probs = [0, 0, 0]</code>, lo que permite distinguir en el frontend si está activa la CNN
-(probabilidades reales) o la heurística.</p>
+<p>Mientras TensorFlow carga (~30 s), se usa <code>HeuristicPredictor</code>: una regla simple
+basada en la razón entre potencias alpha+beta y delta+theta y los índices eSense de
+atención/meditación. Implementa la misma interfaz <code>Predictor</code> que la CNN (mismo
+método <code>predict()</code> y misma estructura de salida), pero devuelve <code>probs = [0, 0, 0]</code>,
+lo que permite distinguir en el frontend si está activa la CNN (probabilidades
+reales) o la heurística. La fábrica <code>create_predictor()</code> decide cuál usar. Ver
+<a href="../15-patrones-diseno/">15 · Patrones de Diseño</a>.</p>
 <p>Continúa en → <a href="../11-integracion-datos/">11 · Integración de Datos EEG ↔ Web</a>.</p>
 
 

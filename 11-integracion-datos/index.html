@@ -1105,18 +1105,21 @@ aparece, sin pasos manuales, en las estadísticas de la aplicación web. La clav
       │                                        │   (estadísticas)       │
 </code></pre></div>
 <h2 id="lado-escritorio-sessionmanager">Lado escritorio: <code>SessionManager</code><a class="headerlink" href="#lado-escritorio-sessionmanager" title="Permanent link">&para;</a></h2>
-<p><code>backend/session_manager.py</code> controla la grabación:</p>
+<p><code>backend/application/session_manager.py</code> controla la grabación:</p>
 <ul>
 <li><strong><code>start(patient_id, patient_name, operator)</code></strong> — inserta una fila en
   <code>pages_eegsession</code> con <code>started_at = ahora (UTC)</code> y guarda el <code>session_id</code>
-  devuelto. Marca la sesión como activa.</li>
-<li><strong><code>add_reading(reading)</code></strong> — llamado desde el bucle de <em>polling</em> con cada paquete.
-  Añade la lectura a un buffer en memoria, actualiza un contador de emociones
-  (<code>Counter</code>) e inserta la fila en <code>pages_eegreading</code>. La escritura a BD ocurre en un
-  hilo para no bloquear la UI; si falla, la lectura se pierde sin cortar la sesión.</li>
-<li><strong><code>stop()</code></strong> — calcula la <strong>emoción dominante</strong> (la más frecuente del <code>Counter</code>),
-  hace <code>UPDATE</code> de <code>ended_at</code> y <code>dominant_emotion</code>, y guarda además un <strong>respaldo
-  local</strong> en <code>data/sessions/&lt;fecha&gt;_&lt;paciente&gt;.json</code>.</li>
+  devuelto. Marca la sesión como activa y arranca su hilo de persistencia.</li>
+<li><strong><code>add_reading(reading)</code></strong> — es la función a la que llega cada cuadro que
+  <strong>notifica</strong> el conector (patrón Observer). Añade la lectura a un buffer en
+  memoria, actualiza un contador de emociones (<code>Counter</code>) y la <strong>encola</strong>. Un único
+  hilo trabajador consume la cola e inserta las filas en <code>pages_eegreading</code>, para no
+  bloquear la UI ni crear un hilo por lectura; si una escritura falla, esa lectura se
+  pierde sin cortar la sesión. Ver <a href="../15-patrones-diseno/">15 · Patrones de Diseño</a>.</li>
+<li><strong><code>stop()</code></strong> — vacía y detiene el hilo de persistencia, calcula la <strong>emoción
+  dominante</strong> (la más frecuente del <code>Counter</code>), hace <code>UPDATE</code> de <code>ended_at</code> y
+  <code>dominant_emotion</code>, y guarda además un <strong>respaldo local</strong> en
+  <code>data/sessions/&lt;fecha&gt;_&lt;paciente&gt;.json</code>.</li>
 </ul>
 <h3 id="concepto-emocion-dominante">Concepto: emoción dominante<a class="headerlink" href="#concepto-emocion-dominante" title="Permanent link">&para;</a></h3>
 <p>Durante la sesión se registran cientos de lecturas, cada una con su etiqueta de
@@ -1124,7 +1127,7 @@ emoción. Al cerrar, se toma la etiqueta <strong>más frecuente</strong> como re
 sesión (<code>emotion_counter.most_common(1)</code>). Ese valor es el que se muestra como
 emoción de la sesión en la web.</p>
 <h2 id="lado-escritorio-db_client">Lado escritorio: <code>db_client</code><a class="headerlink" href="#lado-escritorio-db_client" title="Permanent link">&para;</a></h2>
-<p><code>backend/db_client.py</code> habla SQL directo (<code>psycopg2</code>) contra las tablas que Django
+<p><code>backend/infrastructure/db_client.py</code> habla SQL directo (<code>psycopg2</code>) contra las tablas que Django
 generó. No usa el ORM. Funciones clave:</p>
 <table>
 <thead>
